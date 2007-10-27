@@ -1,0 +1,25 @@
+Base		T_BASE
+Event		T_EVENT
+
+INPUT
+
+T_BASE
+	if (!(SvROK ($arg) && SvOBJECT (SvRV ($arg))
+            && SvSTASH (SvRV ($arg)) == stash_base))
+          croak (\"object is not of type EV::Base\");
+        $var = (Base)SvIV (SvRV ($arg));
+
+T_EVENT
+	if (!(SvROK ($arg) && SvOBJECT (SvRV ($arg))
+            && SvSTASH (SvRV ($arg)) == stash_event))
+          croak (\"object is not of type EV::Event\");
+        $var = (Event)SvPVX (SvRV ($arg));
+
+OUTPUT
+
+T_BASE
+	sv_setref_iv ($arg, "EV::Base", (IV)$var);
+
+T_EVENT
+	$arg = e_self ($var);
+

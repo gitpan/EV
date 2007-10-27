@@ -1,0 +1,8 @@
+Revision history for Perl extension EV
+
+0.01  Sat Oct 27 19:10:18 CEST 2007
+	- initial release.
+
+0.00  Fri Oct 26 11:12:57 CEST 2007
+	- original version; cloned from JSON::XS
+
