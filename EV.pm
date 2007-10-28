@@ -57,18 +57,26 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.01';
+   our $VERSION = '0.02';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
 
-=head1 FUNCTIONAL INTERFACE
+=head1 BASIC INTERFACE
 
 =over 4
 
 =item $EV::NPRI
 
 How many priority levels are available.
+
+=item $EV::DIED
+
+Must contain a reference to a function that is called when a callback
+throws an exception (with $@ containing thr error). The default prints an
+informative message and continues.
+
+If this callback throws an exception it will be silently ignored.
 
 =item $time = EV::now
 
@@ -232,6 +240,10 @@ In general, if you fork, then you can only use the EV module in one of the
 children.
 
 =cut
+
+our $DIED = sub {
+   warn "EV: error in callback (ignoring): $@";
+};
 
 our $NPRI = 4;
 our $BASE = init;

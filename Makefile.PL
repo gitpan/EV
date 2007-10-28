@@ -1,3 +1,5 @@
+use 5.006;
+
 use ExtUtils::MakeMaker;
 
 print <<EOF;
@@ -7,7 +9,7 @@ print <<EOF;
 *** first in a way so that the Makefile.PL can find both -levent and the event.h
 *** and evdns.h include files.
 *** 
-*** Version 1.3e or higher is recommended, but older versions likely work too.
+*** Version 1.3e or higher is recommended, but older 1.3 versions likely work too.
 *** 
 
 EOF

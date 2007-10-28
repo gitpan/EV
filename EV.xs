@@ -180,12 +180,19 @@ e_cb (int fd, short events, void *arg)
   PUSHs (sv_2mortal (newSViv (events)));
   PUTBACK;
   call_sv (ev->cb, G_DISCARD | G_VOID | G_EVAL);
-  /*TODO: if err, call some logging function */
 
   if (ev->interval && !ev->active)
     e_start (ev);
 
   FREETMPS;
+
+  if (SvTRUE (ERRSV))
+    {
+      PUSHMARK (SP);
+      PUTBACK;
+      call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
+    }
+
   LEAVE;
 }
 
@@ -230,6 +237,14 @@ dns_cb (int result, char type, int count, int ttl, void *addresses, void *arg)
   call_sv (sv_2mortal (cb), G_DISCARD | G_VOID | G_EVAL);
 
   FREETMPS;
+
+  if (SvTRUE (ERRSV))
+    {
+      PUSHMARK (SP);
+      PUTBACK;
+      call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
+    }
+
   LEAVE;
 }
 
@@ -537,7 +552,7 @@ int evdns_resolve_reverse (SV *addr, int flags, SV *cb)
         STRLEN len;
         char *data = SvPVbyte (addr, len);
         if (len != (ix ? 16 : 4))
-          croak ("ipv4/ipv6 address to resolve must be given as 4/16 byte octet string");
+          croak ("ipv4/ipv6 address to be resolved must be given as 4/16 byte octet string");
 
         RETVAL = ix
           ? evdns_resolve_reverse_ipv6 ((struct in6_addr *)data, flags, dns_cb, (void *)SvREFCNT_inc (cb))
