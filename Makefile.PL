@@ -23,5 +23,12 @@ WriteMakefile(
     LIBS => ["-levent"],
     NAME => "EV",
     VERSION_FROM => "EV.pm",
+    PM           => {
+    		    'EV.pm'		=> '$(INST_LIBDIR)/EV.pm',
+    		    'EV/AnyEvent.pm'	=> '$(INST_LIBDIR)/EV/AnyEvent.pm',
+    		    'EV/DNS.pm'		=> '$(INST_LIBDIR)/EV/DNS.pm',
+    		    'EV/EVAPI.h'	=> '$(INST_LIBDIR)/EV/EVAPI.h',
+    		    'EV/MakeMaker.pm'	=> '$(INST_LIBDIR)/EV/MakeMaker.pm',
+                 },
 );
 

@@ -4,41 +4,62 @@ EV - perl interface to libevent, monkey.org/~provos/libevent/
 
 =head1 SYNOPSIS
 
- use EV;
-
- # TIMER
-
- my $w = EV::timer 2, 0, sub {
-    warn "is called after 2s";
- };
-
- my $w = EV::timer 2, 1, sub {
-    warn "is called roughly every 2s (repeat = 1)";
- };
-
- undef $w; # destroy event watcher again
-
- # IO
-
- my $w = EV::timer_abs 0, 60, sub {
-    warn "is called every minute, on the minute, exactly";
- };
-
- my $w = EV::io \*STDIN, EV::READ | EV::PERSIST, sub {
-    my ($w, $events) = @_; # all callbacks get the watcher object and event mask
-    if ($events & EV::TIMEOUT) {
-       warn "nothign received on stdin for 10 seconds, retrying";
-    } else {
-       warn "stdin is readable, you entered: ", <STDIN>;
-    }
- };
- $w->timeout (10);
-
- # MAINLOOP
- EV::dispatch; # loop as long as watchers are active
- EV::loop;     # the same thing
- EV::loop EV::LOOP_ONCE;
- EV::loop EV::LOOP_ONSHOT;
+  use EV;
+  
+  # TIMER
+  
+  my $w = EV::timer 2, 0, sub {
+     warn "is called after 2s";
+  };
+  
+  my $w = EV::timer 2, 1, sub {
+     warn "is called roughly every 2s (repeat = 1)";
+  };
+  
+  undef $w; # destroy event watcher again
+  
+  my $w = EV::timer_abs 0, 60, sub {
+     warn "is called every minute, on the minute, exactly";
+  };
+  
+  # IO
+  
+  my $w = EV::io \*STDIN, EV::READ | EV::PERSIST, sub {
+     my ($w, $events) = @_; # all callbacks get the watcher object and event mask
+     if ($events & EV::TIMEOUT) {
+        warn "nothing received on stdin for 10 seconds, retrying";
+     } else {
+        warn "stdin is readable, you entered: ", <STDIN>;
+     }
+  };
+  $w->timeout (10);
+  
+  my $w = EV::timed_io \*STDIN, EV::READ, 30, sub {
+     my ($w, $events) = @_;
+     if ($_[1] & EV::TIMEOUT) {
+        warn "nothing entered within 30 seconds, bye bye.\n";
+        $w->stop;
+     } else {
+        my $line = <STDIN>;
+        warn "you entered something, you again have 30 seconds.\n";
+     }
+  };
+  
+  # SIGNALS
+  
+  my $w = EV::signal 'QUIT', sub {
+     warn "sigquit received\n";
+  };
+  
+  my $w = EV::signal 3, sub {
+     warn "sigquit received (this is GNU/Linux, right?)\n";
+  };
+  
+  # MAINLOOP
+  EV::dispatch; # loop as long as watchers are active
+  EV::loop;     # the same thing
+  EV::loop EV::LOOP_ONCE;     # block until some events could be handles
+  EV::loop EV::LOOP_NONBLOCK; # check and handle some events, but do not wait
 
 =head1 DESCRIPTION
 
@@ -57,7 +78,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.02';
+   our $VERSION = '0.03';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -111,7 +132,7 @@ As long as the returned watcher object is alive, call the C<$callback>
 when the events specified in C<$eventmask> happen. Initially, the timeout
 is disabled.
 
-Youc an additionall set a timeout to occur on the watcher, but note that
+You can additionall set a timeout to occur on the watcher, but note that
 this timeout will not be reset when you get an I/O event in the EV::PERSIST
 case, and reaching a timeout will always stop the watcher even in the
 EV::PERSIST case.
@@ -126,6 +147,24 @@ Eventmask can be one or more of these constants ORed together:
   EV::PERSIST  stay active after a (non-timeout) event occured
 
 The C<io_ns> variant doesn't add/start the newly created watcher.
+
+=item my $w = EV::timed_io $fileno_or_fh, $eventmask, $timeout, $callback
+
+=item my $w = EV::timed_io_ns $fileno_or_fh, $eventmask, $timeout, $callback
+
+Same as C<io> and C<io_ns>, but also specifies a timeout (as if there was
+a call to C<< $w->timeout ($timout, 1) >>. The persist flag is not allowed
+and will automatically be cleared. The watcher will be restarted after each event.
+
+If the timeout is zero or undef, no timeout will be set, and a normal
+watcher (with the persist flag set!) will be created.
+
+This has the effect of timing out after the specified period of inactivity
+has happened.
+
+Due to the design of libevent, this is also relatively inefficient, having
+one or two io watchers and a separate timeout watcher that you reset on
+activity (by calling its C<start> method) is usually more efficient.
 
 =item my $w = EV::timer $after, $repeat, $callback
 
@@ -162,11 +201,21 @@ C<$time = $at (mod $interval)>, regardless of any time jumps.
 
 The C<timer_abs_ns> variant doesn't add/start the newly created watcher.
 
-=item my $w = EV::signal $signum, $callback
+=item my $w = EV::signal $signal, $callback
 
-=item my $w = EV::signal_ns $signum, $callback
+=item my $w = EV::signal_ns $signal, $callback
 
-Call the callback when signal $signum is received.
+Call the callback when $signal is received (the signal can be specified
+by number or by name, just as with kill or %SIG). Signal watchers are
+persistent no natter what.
+
+EV will grab the signal for the process (the kernel only allows one
+component to receive signals) when you start a signal watcher, and
+removes it again when you stop it. Pelr does the same when you add/remove
+callbacks to %SIG, so watch out.
+
+Unfortunately, only one handler can be registered per signal. Screw
+libevent.
 
 The C<signal_ns> variant doesn't add/start the newly created watcher.
 
@@ -204,7 +253,15 @@ Return the previously set callback and optionally set a new one.
 
 =item $old_fh = $w->fh ($new_fh)
 
-Returns the previously set filehandle and optionally set a new one.
+Returns the previously set filehandle and optionally set a new one (also
+clears the EV::SIGNAL flag when setting a filehandle).
+
+=item $current_signal = $w->signal
+
+=item $old_signal = $w->signal ($new_signal)
+
+Returns the previously set signal number and optionally set a new one (also sets
+the EV::SIGNAL flag when setting a signal).
 
 =item $current_eventmask = $w->events
 

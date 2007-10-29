@@ -1,6 +1,9 @@
 Base		T_BASE
 Event		T_EVENT
-const char *	T_PV /* for 5.6 compatibility */
+Signal		T_SIGNAL
+
+char *		T_PVbyte
+const char *	T_PVbyte
 
 INPUT
 
@@ -16,6 +19,13 @@ T_EVENT
           croak (\"object is not of type EV::Event\");
         $var = (Event)SvPVX (SvRV ($arg));
 
+T_SIGNAL
+	if (($var = sv_signum ($arg)) <= 0)
+          croak (\"'%s' is not a valid signal number or name\", SvPV_nolen ($arg));
+
+T_PVbyte
+	$var = ($type)SvPVbyte_nolen ($arg)
+
 OUTPUT
 
 T_BASE
@@ -23,4 +33,7 @@ T_BASE
 
 T_EVENT
 	$arg = e_self ($var);
+
+T_PVbyte
+	sv_setpv ((SV *)$arg, $var);
 

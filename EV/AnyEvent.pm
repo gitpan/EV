@@ -42,6 +42,12 @@ sub io {
       }
 }
 
+sub signal {
+   my ($class, %arg) = @_;
+
+   EV::signal $arg{signal}, $arg{cb}
+}
+
 sub condvar {
    bless \my $flag, "EV::AnyEvent"
 }

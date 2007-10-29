@@ -5,8 +5,10 @@ COPYING
 Makefile.PL
 EV.xs
 EV.pm
+EV/EVAPI.h
 EV/AnyEvent.pm
 EV/DNS.pm
+EV/MakeMaker.pm
 t/00_load.t
 typemap
 META.yml                                 Module meta-data (added by MakeMaker)

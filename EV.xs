@@ -25,7 +25,12 @@ struct {                                                                \
 
 #define TIMEOUT_NONE HUGE_VAL
 
+#include "EV/EVAPI.h"
+
 typedef struct event_base *Base;
+typedef int Signal;
+
+static struct EVAPI evapi;
 
 static HV *stash_base, *stash_event;
 
@@ -39,6 +44,34 @@ static void tv_set (struct timeval *tv, double val)
   tv->tv_sec  = (long)val;
   tv->tv_usec = (long)((val - (double)tv->tv_sec) * 1e6);
 
+}
+
+static int
+sv_signum (SV *sig)
+{
+  int signum;
+
+  if (SvIV (sig) > 0)
+    return SvIV (sig);
+
+  for (signum = 1; signum < SIG_SIZE; ++signum)
+    if (strEQ (SvPV_nolen (sig), PL_sig_name [signum]))
+      return signum;
+
+  return -1;
+}
+
+static void
+api_once (int fd, short events, double timeout, void (*cb)(int, short, void *), void *arg)
+{
+  if (timeout >= 0.)
+    {
+      struct timeval tv;
+      tv_set (&tv, timeout);
+      event_once (fd, events, cb, arg, &tv);
+    }
+  else
+    event_once (fd, events, cb, arg, 0);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -55,7 +88,7 @@ typedef struct ev {
 } *Event;
 
 static double
-e_now ()
+e_now (void)
 {
   struct timeval tv;
   gettimeofday (&tv, 0);
@@ -255,6 +288,7 @@ MODULE = EV		PACKAGE = EV		PREFIX = event_
 
 BOOT:
 {
+  int i;
   HV *stash = gv_stashpv ("EV", 1);
 
   static const struct {
@@ -282,6 +316,20 @@ BOOT:
 
   stash_base  = gv_stashpv ("EV::Base" , 1);
   stash_event = gv_stashpv ("EV::Event", 1);
+
+  {
+    SV *sv = perl_get_sv ("EV::API", TRUE);
+             perl_get_sv ("EV::API", TRUE); /* silence 5.10 warning */
+
+    evapi.ver  = EV_API_VERSION;
+    evapi.rev  = EV_API_REVISION;
+    evapi.now  = e_now;
+    evapi.once = api_once;
+    evapi.loop = event_loop;
+
+    sv_setiv (sv, (IV)&evapi);
+    SvREADONLY_on (sv);
+  }
 }
 
 double now ()
@@ -329,6 +377,26 @@ Event io (SV *fh, short events, SV *cb)
 	OUTPUT:
         RETVAL
 
+Event timed_io (SV *fh, short events, double timeout, SV *cb)
+	ALIAS:
+        timed_io_ns = 1
+	CODE:
+{
+        events = timeout ? events & ~EV_PERSIST : events | EV_PERSIST;
+
+        RETVAL = e_new (fh, events, cb);
+
+        if (timeout)
+	  {
+            RETVAL->timeout  = timeout;
+            RETVAL->interval = 1;
+          }
+
+        if (!ix) e_start (RETVAL);
+}
+	OUTPUT:
+        RETVAL
+
 Event timer (double after, int repeat, SV *cb)
 	ALIAS:
         timer_ns = 1
@@ -352,11 +420,12 @@ Event timer_abs (double at, double interval, SV *cb)
 	OUTPUT:
         RETVAL
 
-Event signal (SV *signal, SV *cb)
+Event signal (Signal signum, SV *cb)
 	ALIAS:
         signal_ns = 1
 	CODE:
-        RETVAL = e_new (signal, EV_SIGNAL | EV_PERSIST, cb);
+        RETVAL = e_new (ST (0), EV_SIGNAL | EV_PERSIST, cb);
+        RETVAL->ev.ev_fd = signum;
         if (!ix) e_start (RETVAL);
 	OUTPUT:
         RETVAL
@@ -437,17 +506,38 @@ SV *cb (Event ev, SV *new_cb = 0)
         RETVAL
 
 SV *fh (Event ev, SV *new_fh = 0)
-	ALIAS:
-        signal = 0
 	CODE:
         RETVAL = newSVsv (ev->fh);
         if (items > 1)
           {
             if (ev->active) event_del (&ev->ev);
             sv_setsv (ev->fh, new_fh);
-            ev->ev.ev_fd = sv_fileno (ev->fh);
+            ev->ev.ev_fd  = sv_fileno (ev->fh);
+            ev->ev.ev_events &= ev->ev.ev_events & ~EV_SIGNAL;
             if (ev->active) event_add (&ev->ev, e_tv (ev));
           }
+	OUTPUT:
+        RETVAL
+
+SV *signal (Event ev, SV *new_signal = 0)
+	CODE:
+{
+	Signal signum;
+
+        if (items > 1)
+          signum = sv_signum (new_signal); /* may croak here */
+
+        RETVAL = newSVsv (ev->fh);
+
+        if (items > 1)
+          {
+            if (ev->active) event_del (&ev->ev);
+            sv_setsv (ev->fh, new_signal);
+            ev->ev.ev_fd     = signum;
+            ev->ev.ev_events |= EV_SIGNAL;
+            if (ev->active) event_add (&ev->ev, e_tv (ev));
+          }
+}
 	OUTPUT:
         RETVAL
 
