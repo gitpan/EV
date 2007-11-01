@@ -84,13 +84,6 @@ resolve ipv6 crashes your program in libevent versions up and including at leats
 
 =back
 
-=head1 BUGS
-
-  * At least up to version 1.3e of libevent, resolve_reverse_ipv6 will
-    always crash the program with an assertion failure.
-  * use'ing this module will keep events registered so the event loop
-    will never return unless loopexit is called.
-
 =cut
 
 init;

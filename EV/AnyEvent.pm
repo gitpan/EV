@@ -13,7 +13,7 @@ EV::AnyEvent - anyevent adaptor for EV
 
 This module provides transparent support for AnyEvent. You don't
 have to do anything to make EV work with AnyEvent except by loading it
-beofre creating the firts AnyEvent watcher.
+before creating the first AnyEvent watcher.
 
 =cut
 
@@ -36,7 +36,7 @@ sub io {
 
    EV::io
       fileno $arg{fh},
-      ($arg{poll} =~ /r/ ? EV::READ : 0) | ($arg{poll} =~ /w/ ? EV::WRITE : 0) | EV::PERSIST,
+      ($arg{poll} =~ /r/ ? EV::READ : 0) | ($arg{poll} =~ /w/ ? EV::WRITE : 0),
       sub {
          $cb->( ($_[1] & EV::READ ? "r" : "") . ($_[1] & EV::WRITE ? "w" : "") );
       }
@@ -48,6 +48,12 @@ sub signal {
    EV::signal $arg{signal}, $arg{cb}
 }
 
+sub child {
+   my ($class, %arg) = @_;
+
+   EV::child $arg{pid}, $arg{cb}
+}
+
 sub condvar {
    bless \my $flag, "EV::AnyEvent"
 }
@@ -57,12 +63,12 @@ sub broadcast {
 }
 
 sub wait {
-   EV::loop EV::LOOP_ONCE
+   EV::loop EV::LOOP_ONESHOT
       while !${$_[0]};
 }
 
 sub one_event {
-   EV::loop EV::LOOP_ONCE;
+   EV::loop EV::LOOP_ONESHOT;
 }
 
 1;

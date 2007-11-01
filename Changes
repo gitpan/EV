@@ -1,5 +1,13 @@
 Revision history for Perl extension EV
 
+0.1   Thu Nov  1 18:29:22 CET 2007
+	- replaced libevent by libev (total rewrite).
+        - many bugfixes w.r.t. libevent.
+        - new watcher types: periodic, check, prepare, child, idle.
+	- performance optimisations.
+        - added interactive configuration.
+        - added fork support.
+
 0.03  Mon Oct 29 20:52:50 CET 2007
         - add timed_io convenience constructors.
         - improve documentation.
@@ -10,7 +18,7 @@ Revision history for Perl extension EV
         - force strings to byte form.
 
 0.02  Sun Oct 28 07:40:21 CET 2007
-	- called $EV::DIED in case a callback throws an exception.
+	- call $EV::DIED in case a callback throws an exception.
         - add const char * to typemap for possible 5.6 compatibility.
 
 0.01  Sat Oct 27 19:10:18 CEST 2007

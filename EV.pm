@@ -1,12 +1,12 @@
 =head1 NAME
 
-EV - perl interface to libevent, monkey.org/~provos/libevent/
+EV - perl interface to libev, a high performance full-featured event loop
 
 =head1 SYNOPSIS
 
   use EV;
   
-  # TIMER
+  # TIMERS
   
   my $w = EV::timer 2, 0, sub {
      warn "is called after 2s";
@@ -18,31 +18,15 @@ EV - perl interface to libevent, monkey.org/~provos/libevent/
   
   undef $w; # destroy event watcher again
   
-  my $w = EV::timer_abs 0, 60, sub {
+  my $w = EV::periodic 0, 60, sub {
      warn "is called every minute, on the minute, exactly";
   };
   
   # IO
   
-  my $w = EV::io \*STDIN, EV::READ | EV::PERSIST, sub {
-     my ($w, $events) = @_; # all callbacks get the watcher object and event mask
-     if ($events & EV::TIMEOUT) {
-        warn "nothing received on stdin for 10 seconds, retrying";
-     } else {
-        warn "stdin is readable, you entered: ", <STDIN>;
-     }
-  };
-  $w->timeout (10);
-  
-  my $w = EV::timed_io \*STDIN, EV::READ, 30, sub {
-     my ($w, $events) = @_;
-     if ($_[1] & EV::TIMEOUT) {
-        warn "nothing entered within 30 seconds, bye bye.\n";
-        $w->stop;
-     } else {
-        my $line = <STDIN>;
-        warn "you entered something, you again have 30 seconds.\n";
-     }
+  my $w = EV::io *STDIN, EV::READ, sub {
+     my ($w, $revents) = @_; # all callbacks get the watcher object and event mask
+     warn "stdin is readable, you entered: ", <STDIN>;
   };
   
   # SIGNALS
@@ -54,22 +38,22 @@ EV - perl interface to libevent, monkey.org/~provos/libevent/
   my $w = EV::signal 3, sub {
      warn "sigquit received (this is GNU/Linux, right?)\n";
   };
+
+  # CHILD/PID STATUS CHANGES
+
+  my $w = EV::child 666, sub {
+     my ($w, $revents, $status) = @_;
+  };
   
   # MAINLOOP
-  EV::dispatch; # loop as long as watchers are active
-  EV::loop;     # the same thing
-  EV::loop EV::LOOP_ONCE;     # block until some events could be handles
-  EV::loop EV::LOOP_NONBLOCK; # check and handle some events, but do not wait
+  EV::loop;                   # loop until EV::loop_done is called
+  EV::loop EV::LOOP_ONESHOT;  # block until at least one event could be handled
+  EV::loop EV::LOOP_NONBLOCK; # try to handle same events, but do not block
 
 =head1 DESCRIPTION
 
-This module provides an interface to libevent
-(L<http://monkey.org/~provos/libevent/>). You probably should acquaint
-yourself with its documentation and source code to be able to use this
-module fully.
-
-Please note thta this module disables the libevent EPOLL method by
-default, see BUGS, below, if you need to enable it.
+This module provides an interface to libev
+(L<http://software.schmorp.de/pkg/libev.html>).
 
 =cut
 
@@ -78,18 +62,23 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.03';
+   our $VERSION = '0.1';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
 
+@EV::Io::ISA       =
+@EV::Timer::ISA    =
+@EV::Periodic::ISA =
+@EV::Signal::ISA   =
+@EV::Idle::ISA     =
+@EV::Prepare::ISA  =
+@EV::Check::ISA    =
+@EV::Child::ISA    = "EV::Watcher";
+
 =head1 BASIC INTERFACE
 
 =over 4
-
-=item $EV::NPRI
-
-How many priority levels are available.
 
 =item $EV::DIED
 
@@ -99,169 +88,136 @@ informative message and continues.
 
 If this callback throws an exception it will be silently ignored.
 
+=item $time = EV::time
+
+Returns the current time in (fractional) seconds since the epoch.
+
 =item $time = EV::now
 
-Returns the time in (fractional) seconds since the epoch.
+Returns the time the last event loop iteration has been started. This
+is the time that (relative) timers are based on, and refering to it is
+usually faster then calling EV::time.
 
-=item $version = EV::version
+=item $method = EV::ev_method
 
-=item $method = EV::method
+Returns an integer describing the backend used by libev (EV::METHOD_SELECT
+or EV::METHOD_EPOLL).
 
-Return version string and event polling method used.
+=item EV::loop [$flags]
 
-=item EV::loop $flags  # EV::LOOP_ONCE, EV::LOOP_ONESHOT
+Begin checking for events and calling callbacks. It returns when a
+callback calls EV::loop_done.
 
-=item EV::loopexit $after
+The $flags argument can be one of the following:
 
-Exit any active loop or dispatch after C<$after> seconds or immediately if
-C<$after> is missing or zero.
+   0                  as above
+   EV::LOOP_ONESHOT   block at most once (wait, but do not loop)
+   EV::LOOP_NONBLOCK  do not block at all (fetch/handle events but do not wait)
 
-=item EV::dispatch
+=item EV::loop_done [$how]
 
-Same as C<EV::loop 0>.
+When called with no arguments or an argument of 1, makes the innermost
+call to EV::loop return.
 
-=item EV::event $callback
-
-Creates a new event watcher waiting for nothing, calling the given callback.
-
-=item my $w = EV::io $fileno_or_fh, $eventmask, $callback
-
-=item my $w = EV::io_ns $fileno_or_fh, $eventmask, $callback
-
-As long as the returned watcher object is alive, call the C<$callback>
-when the events specified in C<$eventmask> happen. Initially, the timeout
-is disabled.
-
-You can additionall set a timeout to occur on the watcher, but note that
-this timeout will not be reset when you get an I/O event in the EV::PERSIST
-case, and reaching a timeout will always stop the watcher even in the
-EV::PERSIST case.
-
-If you want a timeout to occur only after a specific time of inactivity, set
-a repeating timeout and do NOT use EV::PERSIST.
-
-Eventmask can be one or more of these constants ORed together:
-
-  EV::READ     wait until read() wouldn't block anymore
-  EV::WRITE    wait until write() wouldn't block anymore
-  EV::PERSIST  stay active after a (non-timeout) event occured
-
-The C<io_ns> variant doesn't add/start the newly created watcher.
-
-=item my $w = EV::timed_io $fileno_or_fh, $eventmask, $timeout, $callback
-
-=item my $w = EV::timed_io_ns $fileno_or_fh, $eventmask, $timeout, $callback
-
-Same as C<io> and C<io_ns>, but also specifies a timeout (as if there was
-a call to C<< $w->timeout ($timout, 1) >>. The persist flag is not allowed
-and will automatically be cleared. The watcher will be restarted after each event.
-
-If the timeout is zero or undef, no timeout will be set, and a normal
-watcher (with the persist flag set!) will be created.
-
-This has the effect of timing out after the specified period of inactivity
-has happened.
-
-Due to the design of libevent, this is also relatively inefficient, having
-one or two io watchers and a separate timeout watcher that you reset on
-activity (by calling its C<start> method) is usually more efficient.
-
-=item my $w = EV::timer $after, $repeat, $callback
-
-=item my $w = EV::timer_ns $after, $repeat, $callback
-
-Calls the callback after C<$after> seconds. If C<$repeat> is true, the
-timer will be restarted after the callback returns. This means that the
-callback would be called roughly every C<$after> seconds, prolonged by the
-time the callback takes.
-
-The C<timer_ns> variant doesn't add/start the newly created watcher.
-
-=item my $w = EV::timer_abs $at, $interval, $callback
-
-=item my $w = EV::timer_abs_ns $at, $interval, $callback
-
-Similar to EV::timer, but the time is given as an absolute point in time
-(C<$at>), plus an optional C<$interval>.
-
-If the C<$interval> is zero, then the callback will be called at the time
-C<$at> if that is in the future, or as soon as possible if its in the
-past. It will not automatically repeat.
-
-If the C<$interval> is nonzero, then the watcher will always be scheduled
-to time out at the next C<$at + integer * $interval> time.
-
-This can be used to schedule a callback to run at very regular intervals,
-as long as the processing time is less then the interval (otherwise
-obviously events will be skipped).
-
-Another way to think about it (for the mathematically inclined) is that
-C<timer_abs> will try to tun the callback at the next possible time where
-C<$time = $at (mod $interval)>, regardless of any time jumps.
-
-The C<timer_abs_ns> variant doesn't add/start the newly created watcher.
-
-=item my $w = EV::signal $signal, $callback
-
-=item my $w = EV::signal_ns $signal, $callback
-
-Call the callback when $signal is received (the signal can be specified
-by number or by name, just as with kill or %SIG). Signal watchers are
-persistent no natter what.
-
-EV will grab the signal for the process (the kernel only allows one
-component to receive signals) when you start a signal watcher, and
-removes it again when you stop it. Pelr does the same when you add/remove
-callbacks to %SIG, so watch out.
-
-Unfortunately, only one handler can be registered per signal. Screw
-libevent.
-
-The C<signal_ns> variant doesn't add/start the newly created watcher.
+When called with an agrument of 2, all calls to EV::loop will return as
+fast as possible.
 
 =back
 
-=head1 THE EV::Event CLASS
+=head2 WATCHER
 
-All EV functions creating an event watcher (designated by C<my $w =>
-above) support the following methods on the returned watcher object:
+A watcher is an object that gets created to record your interest in some
+event. For instance, if you want to wait for STDIN to become readable, you
+would create an EV::io watcher for that:
+
+  my $watcher = EV::io *STDIN, EV::READ, sub {
+     my ($watcher, $revents) = @_;
+     warn "yeah, STDIN should not be readable without blocking!\n"
+  };
+
+All watchers can be active (waiting for events) or inactive (paused). Only
+active watchers will have their callbacks invoked. All callbacks will be
+called with at least two arguments: the watcher and a bitmask of received
+events.
+
+Each watcher type has its associated bit in revents, so you can use the
+same callback for multiple watchers. The event mask is named after the
+type, i..e. EV::child sets EV::CHILD, EV::prepare sets EV::PREPARE,
+EV::periodic sets EV::PERIODIC and so on, with the exception of IO events
+(which can set both EV::READ and EV::WRITE bits), and EV::timer (which
+uses EV::TIMEOUT).
+
+In the rare case where one wants to create a watcher but not start it at
+the same time, each constructor has a variant with a trailing C<_ns> in
+its name, e.g. EV::io has a non-starting variant EV::io_ns and so on.
+
+Please note that a watcher will automatically be stopped when the watcher
+object is returned, so you I<need> to keep the watcher objects returned by
+the constructors.
+
+=head2 WATCHER TYPES
+
+Now lets move to the existing watcher types and asociated methods.
+
+The following methods are available for all watchers. Then followes a
+description of each watcher constructor (EV::io, EV::timer, EV::periodic,
+EV::signal, EV::child, EV::idle, EV::prepare and EV::check), followed by
+any type-specific methods (if any).
 
 =over 4
 
-=item $w->add ($timeout)
-
-Stops and (re-)starts the event watcher, setting the optional timeout to
-the given value, or clearing the timeout if none is given.
-
 =item $w->start
 
-Stops and (re-)starts the event watcher without touching the timeout.
-
-=item $w->del
+Starts a watcher if it isn't active already. Does nothing to an already
+active watcher. By default, all watchers start out in the active state
+(see the description of the C<_ns> variants if you need stopped watchers).
 
 =item $w->stop
 
-Stop the event watcher if it was started.
+Stop a watcher if it is active. Also clear any pending events (events that
+have been received but that didn't yet result in a callback invocation),
+regardless of wether the watcher was active or not.
 
-=item $current_callback = $w->cb
+=item $bool = $w->is_active
 
-=item $old_callback = $w->cb ($new_callback)
+Returns true if the watcher is active, false otherwise.
 
-Return the previously set callback and optionally set a new one.
+=item $current_cb = $w->cb
+
+=item $old_cb = $w->cb ($new_cb)
+
+Queries the callback on the watcher and optionally changes it. You cna do
+this at any time.
+
+=item $w->trigger ($revents)
+
+Call the callback *now* with the given event mask.
+
+
+=item $w = EV::io $fileno_or_fh, $eventmask, $callback
+
+=item $w = EV::io_ns $fileno_or_fh, $eventmask, $callback
+
+As long as the returned watcher object is alive, call the C<$callback>
+when the events specified in C<$eventmask>.
+
+The $eventmask can be one or more of these constants ORed together:
+
+  EV::READ     wait until read() wouldn't block anymore
+  EV::WRITE    wait until write() wouldn't block anymore
+
+The C<io_ns> variant doesn't start (activate) the newly created watcher.
+
+=item $w->set ($fileno_or_fh, $eventmask)
+
+Reconfigures the watcher, see the constructor above for details. Can be
+called at any time.
 
 =item $current_fh = $w->fh
 
 =item $old_fh = $w->fh ($new_fh)
 
-Returns the previously set filehandle and optionally set a new one (also
-clears the EV::SIGNAL flag when setting a filehandle).
-
-=item $current_signal = $w->signal
-
-=item $old_signal = $w->signal ($new_signal)
-
-Returns the previously set signal number and optionally set a new one (also sets
-the EV::SIGNAL flag when setting a signal).
+Returns the previously set filehandle and optionally set a new one.
 
 =item $current_eventmask = $w->events
 
@@ -269,32 +225,211 @@ the EV::SIGNAL flag when setting a signal).
 
 Returns the previously set event mask and optionally set a new one.
 
-=item $w->timeout ($after, $repeat)
 
-Resets the timeout (see C<EV::timer> for details).
+=item $w = EV::timer $after, $repeat, $callback
 
-=item $w->timeout_abs ($at, $interval)
+=item $w = EV::timer_ns $after, $repeat, $callback
 
-Resets the timeout (see C<EV::timer_abs> for details).
+Calls the callback after C<$after> seconds. If C<$repeat> is non-zero,
+the timer will be restarted (with the $repeat value as $after) after the
+callback returns.
 
-=item $w->priority_set ($priority)
+This means that the callback would be called roughly after C<$after>
+seconds, and then every C<$repeat> seconds. "Roughly" because the time of
+callback processing is not taken into account, so the timer will slowly
+drift. If that isn't acceptable, look at EV::periodic.
 
-Set the priority of the watcher to C<$priority> (0 <= $priority < $EV::NPRI).
+The timer is based on a monotonic clock, that is if somebody is sitting
+in front of the machine while the timer is running and changes the system
+clock, the timer will nevertheless run (roughly) the same time.
+
+The C<timer_ns> variant doesn't start (activate) the newly created watcher.
+
+=item $w->set ($after, $repeat)
+
+Reconfigures the watcher, see the constructor above for details. Can be at
+any time.
+
+=item $w->again
+
+Similar to the C<start> method, but has special semantics for repeating timers:
+
+If the timer is active and repeating, reset the timeout to occur
+C<$repeat> seconds after now.
+
+If the timer is active and non-repeating, it will be stopped.
+
+If the timer is in active and repeating, start it.
+
+Otherwise do nothing.
+
+This behaviour is useful when you have a timeout for some IO
+operation. You create a timer object with the same value for C<$after> and
+C<$repeat>, and then, in the read/write watcher, run the C<again> method
+on the timeout.
+
+
+=item $w = EV::periodic $at, $interval, $callback
+
+=item $w = EV::periodic_ns $at, $interval, $callback
+
+Similar to EV::timer, but the time is given as an absolute point in time
+(C<$at>), plus an optional C<$interval>.
+
+If the C<$interval> is zero, then the callback will be called at the time
+C<$at> if that is in the future, or as soon as possible if it is in the
+past. It will not automatically repeat.
+
+If the C<$interval> is nonzero, then the watcher will always be scheduled
+to time out at the next C<$at + N * $interval> time.
+
+This can be used to schedule a callback to run at very regular intervals,
+as long as the processing time is less then the interval (otherwise
+obviously events will be skipped).
+
+Another way to think about it (for the mathematically inclined) is that
+EV::periodic will try to run the callback at the next possible time where
+C<$time = $at (mod $interval)>, regardless of any time jumps.
+
+This periodic timer is based on "wallclock time", that is, if the clock
+changes (C<ntp>, C<date -s> etc.), then the timer will nevertheless run at
+the specified time. This means it will never drift (it might jitter, but
+it will not drift).
+
+The C<periodic_ns> variant doesn't start (activate) the newly created watcher.
+
+=item $w->set ($at, $interval)
+
+Reconfigures the watcher, see the constructor above for details. Can be at
+any time.
+
+
+=item $w = EV::signal $signal, $callback
+
+=item $w = EV::signal_ns $signal, $callback
+
+Call the callback when $signal is received (the signal can be specified
+by number or by name, just as with kill or %SIG).
+
+EV will grab the signal for the process (the kernel only allows one
+component to receive a signal at a time) when you start a signal watcher,
+and removes it again when you stop it. Perl does the same when you
+add/remove callbacks to %SIG, so watch out.
+
+You can have as many signal watchers per signal as you want.
+
+The C<signal_ns> variant doesn't start (activate) the newly created watcher.
+
+=item $w->set ($signal)
+
+Reconfigures the watcher, see the constructor above for details. Can be at
+any time.
+
+
+=item $w = EV::child $pid, $callback
+
+=item $w = EV::child_ns $pid, $callback
+
+Call the callback when a status change for pid C<$pid> (or any pid
+if C<$pid> is 0) has been received. More precisely: when the process
+receives a SIGCHLD, EV will fetch the outstanding exit/wait status for all
+changed/zombie children and call the callback.
+
+Unlike all other callbacks, this callback will be called with an
+additional third argument which is the exit status. See the C<waitpid>
+function for details.
+
+You can have as many pid watchers per pid as you want.
+
+The C<child_ns> variant doesn't start (activate) the newly created watcher.
+
+=item $w->set ($pid)
+
+Reconfigures the watcher, see the constructor above for details. Can be at
+any time.
+
+
+=item $w = EV::idle $callback
+
+=item $w = EV::idle_ns $callback
+
+Call the callback when there are no pending io, timer/periodic, signal or
+child events, i.e. when the process is idle.
+
+The process will not block as long as any idle watchers are active, and
+they will be called repeatedly until stopped.
+
+The C<idle_ns> variant doesn't start (activate) the newly created watcher.
+
+
+=item $w = EV::prepare $callback
+
+=item $w = EV::prepare_ns $callback
+
+Call the callback just before the process would block. You can still
+create/modify any watchers at this point.
+
+See the EV::check watcher, below, for explanations and an example.
+
+The C<prepare_ns> variant doesn't start (activate) the newly created watcher.
+
+
+=item $w = EV::check $callback
+
+=item $w = EV::check_ns $callback
+
+Call the callback just after the process wakes up again (after it has
+gathered events), but before any other callbacks have been invoked.
+
+This is used to integrate other event-based software into the EV
+mainloop: You register a prepare callback and in there, you create io and
+timer watchers as required by the other software. Here is a real-world
+example of integrating Net::SNMP (with some details left out):
+
+   our @snmp_watcher;
+
+   our $snmp_prepare = EV::prepare sub {
+      # do nothing unless active
+      $dispatcher->{_event_queue_h}
+         or return;
+
+      # make the dispatcher handle any outstanding stuff
+
+      # create an IO watcher for each and every socket
+      @snmp_watcher = (
+         (map { EV::io $_, EV::READ, sub { } }
+             keys %{ $dispatcher->{_descriptors} }),
+      );
+
+      # if there are any timeouts, also create a timer
+      push @snmp_watcher, EV::timer $event->[Net::SNMP::Dispatcher::_TIME] - EV::now, 0, sub { }
+         if $event->[Net::SNMP::Dispatcher::_ACTIVE];
+   };
+
+The callbacks are irrelevant, the only purpose of those watchers is
+to wake up the process as soon as one of those events occurs (socket
+readable, or timer timed out). The corresponding EV::check watcher will then
+clean up:
+
+   our $snmp_check = EV::check sub {
+      # destroy all watchers
+      @snmp_watcher = ();
+
+      # make the dispatcher handle any new stuff
+   };
+
+The callbacks of the created watchers will not be called as the watchers
+are destroyed before this cna happen (remember EV::check gets called
+first).
+
+The C<check_ns> variant doesn't start (activate) the newly created watcher.
 
 =back
 
-=head1 BUGS
+=head1 THREADS
 
-Lots. Libevent itself isn't well tested and rather buggy, and this module
-is quite new at the moment.
-
-Please note that the epoll method is not, in general, reliable in programs
-that use fork (even if no libveent calls are being made in the forked
-process). If your program behaves erratically, try setting the environment
-variable C<EVENT_NOEPOLL> first when running the program.
-
-In general, if you fork, then you can only use the EV module in one of the
-children.
+Threads are not supported by this in any way. Perl pseudo-threads is evil
+stuff and must die.
 
 =cut
 
@@ -302,9 +437,7 @@ our $DIED = sub {
    warn "EV: error in callback (ignoring): $@";
 };
 
-our $NPRI = 4;
-our $BASE = init;
-priority_init $NPRI;
+init;
 
 push @AnyEvent::REGISTRY, [EV => "EV::AnyEvent"];
 
@@ -312,8 +445,7 @@ push @AnyEvent::REGISTRY, [EV => "EV::AnyEvent"];
 
 =head1 SEE ALSO
 
-  L<EV::DNS>, L<event(3)>, L<event.h>, L<evdns.h>.
-  L<EV::AnyEvent>.
+  L<EV::DNS>, L<EV::AnyEvent>.
 
 =head1 AUTHOR
 

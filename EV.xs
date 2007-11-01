@@ -2,103 +2,55 @@
 #include "perl.h"
 #include "XSUB.h"
 
-#include <math.h>
-#include <netinet/in.h>
+/*#include <netinet/in.h>*/
 
-#include <sys/time.h>
-#include <time.h>
-#include <event.h>
-#include <evdns.h>
-
-/* workaround for evhttp.h requiring obscure bsd headers */
-#ifndef TAILQ_ENTRY
-#define TAILQ_ENTRY(type)                                               \
-struct {                                                                \
-        struct type *tqe_next;  /* next element */                      \
-        struct type **tqe_prev; /* address of previous next element */  \
-}
-#endif /* !TAILQ_ENTRY */
-#include <evhttp.h>
-
-#define EV_NONE 0
-#define EV_UNDEF -1
-
-#define TIMEOUT_NONE HUGE_VAL
-
+#define EV_PROTOTYPES 1
 #include "EV/EVAPI.h"
 
-typedef struct event_base *Base;
+#include "libev/ev.c"
+#include "libev/event.h"
+#include "libev/event.c"
+#include "libev/evdns.c"
+
 typedef int Signal;
 
 static struct EVAPI evapi;
 
-static HV *stash_base, *stash_event;
-
-static double tv_get (struct timeval *tv)
-{
-  return tv->tv_sec + tv->tv_usec * 1e-6;
-}
-
-static void tv_set (struct timeval *tv, double val)
-{
-  tv->tv_sec  = (long)val;
-  tv->tv_usec = (long)((val - (double)tv->tv_sec) * 1e6);
-
-}
+static HV
+  *stash_watcher,
+  *stash_io,
+  *stash_timer,
+  *stash_periodic,
+  *stash_signal,
+  *stash_idle,
+  *stash_prepare,
+  *stash_check,
+  *stash_child;
 
 static int
 sv_signum (SV *sig)
 {
   int signum;
 
-  if (SvIV (sig) > 0)
-    return SvIV (sig);
+  SvGETMAGIC (sig);
 
   for (signum = 1; signum < SIG_SIZE; ++signum)
     if (strEQ (SvPV_nolen (sig), PL_sig_name [signum]))
       return signum;
 
-  return -1;
-}
+  if (SvIV (sig) > 0)
+    return SvIV (sig);
 
-static void
-api_once (int fd, short events, double timeout, void (*cb)(int, short, void *), void *arg)
-{
-  if (timeout >= 0.)
-    {
-      struct timeval tv;
-      tv_set (&tv, timeout);
-      event_once (fd, events, cb, arg, &tv);
-    }
-  else
-    event_once (fd, events, cb, arg, 0);
+  return -1;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // Event
 
-typedef struct ev {
-  struct event ev;
-  SV *cb, *fh;
-  SV *self; /* contains this struct */
-  double timeout;
-  double interval;
-  unsigned char active;
-  unsigned char abstime;
-} *Event;
+static void e_cb (struct ev_watcher *w, int revents);
 
-static double
-e_now (void)
-{
-  struct timeval tv;
-  gettimeofday (&tv, 0);
-
-  return tv_get (&tv);
-}
-
-static void e_cb (int fd, short events, void *arg);
-
-static int sv_fileno (SV *fh)
+static int
+sv_fileno (SV *fh)
 {
   SvGETMAGIC (fh);
 
@@ -108,125 +60,102 @@ static int sv_fileno (SV *fh)
   if (SvTYPE (fh) == SVt_PVGV)
     return PerlIO_fileno (IoIFP (sv_2io (fh)));
 
-  if (SvIOK (fh))
+  if ((SvIV (fh) >= 0) && (SvIV (fh) < 0x7ffffff))
     return SvIV (fh);
 
   return -1;
 }
 
-static Event
-e_new (SV *fh, short events, SV *cb)
+static void *
+e_new (int size, SV *cb_sv)
 {
-  int fd = sv_fileno (fh);
-  Event ev;
-  SV *self = NEWSV (0, sizeof (struct ev));
+  struct ev_watcher *w;
+  SV *self = NEWSV (0, size);
   SvPOK_only (self);
-  SvCUR_set (self, sizeof (struct ev));
+  SvCUR_set (self, size);
 
-  ev = (Event)SvPVX (self);
+  w = (struct ev_watcher *)SvPVX (self);
 
-  ev->fh       = newSVsv (fh);
-  ev->cb       = newSVsv (cb);
-  ev->self     = self;
-  ev->timeout  = TIMEOUT_NONE;
-  ev->interval = 0.;
-  ev->abstime  = 0;
-  ev->active   = 0;
+  ev_watcher_init (w, e_cb);
 
-  event_set (&ev->ev, fd, events, e_cb, (void *)ev);
+  w->fh    = 0;
+  w->cb_sv = newSVsv (cb_sv);
+  w->self  = self;
 
-  return ev;
+  return (void *)w;
 }
 
-static struct timeval *
-e_tv (Event ev)
+static void *
+e_destroy (void *w_)
 {
-  static struct timeval tv;
-  double to = ev->timeout;
+  struct ev_watcher *w = w_;
 
-  if (to == TIMEOUT_NONE)
-    return 0;
-
-  if (ev->abstime)
-    {
-      double now = e_now ();
-
-      if (ev->interval)
-        ev->timeout = (to += ceil ((now - to) / ev->interval) * ev->interval);
-
-      to -= now;
-    }
-  else if (to < 0.)
-    to = 0.;
-
-  tv_set (&tv, to);
-
-  return &tv;
+  SvREFCNT_dec (w->fh   ); w->fh    = 0;
+  SvREFCNT_dec (w->cb_sv); w->cb_sv = 0;
 }
 
-static SV *e_self (Event ev)
+static SV *
+e_bless (struct ev_watcher *w, HV *stash)
 {
   SV *rv;
 
-  if (SvOBJECT (ev->self))
-    rv = newRV_inc (ev->self);
+  if (SvOBJECT (w->self))
+    rv = newRV_inc (w->self);
   else
     {
-      rv = newRV_noinc (ev->self);
-      sv_bless (rv, stash_event);
-      SvREADONLY_on (ev->self);
+      rv = newRV_noinc (w->self);
+      sv_bless (rv, stash);
+      SvREADONLY_on (w->self);
     }
 
   return rv;
 }
 
-static int
-e_start (Event ev)
-{
-  if (ev->active) event_del (&ev->ev);
-  ev->active = 1;
-  return event_add (&ev->ev, e_tv (ev));
-}
-
-static int e_stop (Event ev)
-{
-  return ev->active
-    ? (ev->active = 0), event_del (&ev->ev)
-    : 0;
-}
-
 static void
-e_cb (int fd, short events, void *arg)
+e_cb (struct ev_watcher *w, int revents)
 {
-  struct ev *ev = (struct ev*)arg;
   dSP;
+  I32 mark = SP - PL_stack_base;
+  SV *sv_self, *sv_events, *sv_status = 0;
+  static SV *sv_events_cache;
 
-  ENTER;
-  SAVETMPS;
+  sv_self = newRV_inc (w->self); /* w->self MUST be blessed by now */
 
-  if (!(ev->ev.ev_events & EV_PERSIST) || (events & EV_TIMEOUT))
-    ev->active = 0;
+  if (sv_events_cache)
+    {
+      sv_events = sv_events_cache; sv_events_cache = 0;
+      SvIV_set (sv_events, revents);
+    }
+  else
+    sv_events = newSViv (revents);
 
   PUSHMARK (SP);
   EXTEND (SP, 2);
-  PUSHs (sv_2mortal (e_self (ev)));
-  PUSHs (sv_2mortal (newSViv (events)));
+  PUSHs (sv_self);
+  PUSHs (sv_events);
+
+  if (revents & EV_CHILD)
+    XPUSHs (sv_status = newSViv (((struct ev_child *)w)->status));
+
   PUTBACK;
-  call_sv (ev->cb, G_DISCARD | G_VOID | G_EVAL);
+  call_sv (w->cb_sv, G_DISCARD | G_VOID | G_EVAL);
+  SP = PL_stack_base + mark; PUTBACK;
 
-  if (ev->interval && !ev->active)
-    e_start (ev);
+  SvREFCNT_dec (sv_self);
+  SvREFCNT_dec (sv_status);
 
-  FREETMPS;
+  if (sv_events_cache)
+    SvREFCNT_dec (sv_events);
+  else
+    sv_events_cache = sv_events;
 
   if (SvTRUE (ERRSV))
     {
       PUSHMARK (SP);
       PUTBACK;
       call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
+      SP = PL_stack_base + mark; PUTBACK;
     }
-
-  LEAVE;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -281,10 +210,18 @@ dns_cb (int result, char type, int count, int ttl, void *addresses, void *arg)
   LEAVE;
 }
 
+#define CHECK_REPEAT(repeat) if (repeat < 0.) \
+  croak (# repeat " value must be >= 0");
+
+#define CHECK_FD(fh,fd) if ((fd) < 0) \
+  croak ("illegal file descriptor or filehandle (either no attached file descriptor or illegal value): %s", SvPV_nolen (fh));
+
 /////////////////////////////////////////////////////////////////////////////
 // XS interface functions
 
-MODULE = EV		PACKAGE = EV		PREFIX = event_
+MODULE = EV		PACKAGE = EV		PREFIX = ev_
+
+PROTOTYPES: ENABLE
 
 BOOT:
 {
@@ -296,285 +233,408 @@ BOOT:
     IV iv;
   } *civ, const_iv[] = {
 #   define const_iv(pfx, name) { # name, (IV) pfx ## name },
+    const_iv (EV_, UNDEF)
     const_iv (EV_, NONE)
     const_iv (EV_, TIMEOUT)
     const_iv (EV_, READ)
     const_iv (EV_, WRITE)
     const_iv (EV_, SIGNAL)
-    const_iv (EV_, PERSIST)
-    const_iv (EV, LOOP_ONCE)
+    const_iv (EV_, IDLE)
+    const_iv (EV_, CHECK)
+    const_iv (EV_, ERROR)
+
+    const_iv (EV, LOOP_ONESHOT)
     const_iv (EV, LOOP_NONBLOCK)
-    const_iv (EV, BUFFER_READ)
-    const_iv (EV, BUFFER_WRITE)
-    const_iv (EV, BUFFER_EOF)
-    const_iv (EV, BUFFER_ERROR)
-    const_iv (EV, BUFFER_TIMEOUT)
+
+    const_iv (EV, METHOD_NONE)
+    const_iv (EV, METHOD_SELECT)
+    const_iv (EV, METHOD_EPOLL)
   };
 
   for (civ = const_iv + sizeof (const_iv) / sizeof (const_iv [0]); civ-- > const_iv; )
     newCONSTSUB (stash, (char *)civ->name, newSViv (civ->iv));
 
-  stash_base  = gv_stashpv ("EV::Base" , 1);
-  stash_event = gv_stashpv ("EV::Event", 1);
+  stash_watcher  = gv_stashpv ("EV::Watcher" , 1);
+  stash_io       = gv_stashpv ("EV::Io"      , 1);
+  stash_timer    = gv_stashpv ("EV::Timer"   , 1);
+  stash_periodic = gv_stashpv ("EV::Periodic", 1);
+  stash_signal   = gv_stashpv ("EV::Signal"  , 1);
+  stash_idle     = gv_stashpv ("EV::Idle"    , 1);
+  stash_prepare  = gv_stashpv ("EV::Prepare" , 1);
+  stash_check    = gv_stashpv ("EV::Check"   , 1);
+  stash_child    = gv_stashpv ("EV::Child"   , 1);
 
   {
     SV *sv = perl_get_sv ("EV::API", TRUE);
              perl_get_sv ("EV::API", TRUE); /* silence 5.10 warning */
 
-    evapi.ver  = EV_API_VERSION;
-    evapi.rev  = EV_API_REVISION;
-    evapi.now  = e_now;
-    evapi.once = api_once;
-    evapi.loop = event_loop;
+    /* the poor man's shared library emulator */
+    evapi.ver            = EV_API_VERSION;
+    evapi.rev            = EV_API_REVISION;
+    evapi.sv_fileno      = sv_fileno;
+    evapi.sv_signum      = sv_signum;
+    evapi.now            = &ev_now;
+    evapi.method         = &ev_method;
+    evapi.loop_done      = &ev_loop_done;
+    evapi.time           = ev_time;
+    evapi.loop           = ev_loop;
+    evapi.once           = ev_once;
+    evapi.io_start       = ev_io_start;
+    evapi.io_stop        = ev_io_stop;
+    evapi.timer_start    = ev_timer_start;
+    evapi.timer_stop     = ev_timer_stop;
+    evapi.timer_again    = ev_timer_again;
+    evapi.periodic_start = ev_periodic_start;
+    evapi.periodic_stop  = ev_periodic_stop;
+    evapi.signal_start   = ev_signal_start;
+    evapi.signal_stop    = ev_signal_stop;
+    evapi.idle_start     = ev_idle_start;
+    evapi.idle_stop      = ev_idle_stop;
+    evapi.prepare_start  = ev_prepare_start;
+    evapi.prepare_stop   = ev_prepare_stop;
+    evapi.check_start    = ev_check_start;
+    evapi.check_stop     = ev_check_stop;
+    evapi.child_start    = ev_child_start;
+    evapi.child_stop     = ev_child_stop;
 
     sv_setiv (sv, (IV)&evapi);
     SvREADONLY_on (sv);
   }
+
+  pthread_atfork (ev_fork_prepare, ev_fork_parent, ev_fork_child);
 }
 
-double now ()
+NV ev_now ()
 	CODE:
-        RETVAL = e_now ();
+        RETVAL = ev_now;
 	OUTPUT:
         RETVAL
 
-const char *version ()
-	ALIAS:
-        method = 1
+int ev_method ()
 	CODE:
-        RETVAL = ix ? event_get_method () : event_get_version ();
+        RETVAL = ev_method;
 	OUTPUT:
         RETVAL
 
-Base event_init ()
+NV ev_time ()
 
-int event_priority_init (int npri)
+void ev_init (int flags = 0)
 
-int event_dispatch ()
+void ev_loop (int flags = 0)
 
-int event_loop (int flags = 0)
-
-int event_loopexit (double after = 0)
+void ev_loop_done (int value = 1)
 	CODE:
-{
-        struct timeval tv;
-        tv_set (&tv, after);
-        event_loopexit (&tv);
-}
+        ev_loop_done = value;
 
-Event event (SV *cb)
-	CODE:
-        RETVAL = e_new (NEWSV (0, 0), 0, cb);
-	OUTPUT:
-        RETVAL
-
-Event io (SV *fh, short events, SV *cb)
+struct ev_io *io (SV *fh, int events, SV *cb)
 	ALIAS:
         io_ns = 1
 	CODE:
-        RETVAL = e_new (fh, events, cb);
-        if (!ix) e_start (RETVAL);
-	OUTPUT:
-        RETVAL
-
-Event timed_io (SV *fh, short events, double timeout, SV *cb)
-	ALIAS:
-        timed_io_ns = 1
-	CODE:
 {
-        events = timeout ? events & ~EV_PERSIST : events | EV_PERSIST;
+	int fd = sv_fileno (fh);
+        CHECK_FD (fh, fd);
 
-        RETVAL = e_new (fh, events, cb);
-
-        if (timeout)
-	  {
-            RETVAL->timeout  = timeout;
-            RETVAL->interval = 1;
-          }
-
-        if (!ix) e_start (RETVAL);
+        RETVAL = e_new (sizeof (struct ev_io), cb);
+        RETVAL->fh = newSVsv (fh);
+        ev_io_set (RETVAL, fd, events);
+        if (!ix) ev_io_start (RETVAL);
 }
 	OUTPUT:
         RETVAL
 
-Event timer (double after, int repeat, SV *cb)
+struct ev_timer *timer (NV after, NV repeat, SV *cb)
 	ALIAS:
         timer_ns = 1
+        INIT:
+        CHECK_REPEAT (repeat);
 	CODE:
-        RETVAL = e_new (NEWSV (0, 0), 0, cb);
-        RETVAL->timeout  = after;
-        RETVAL->interval = repeat;
-        if (!ix) e_start (RETVAL);
+        RETVAL = e_new (sizeof (struct ev_timer), cb);
+        ev_timer_set (RETVAL, after, repeat);
+        if (!ix) ev_timer_start (RETVAL);
 	OUTPUT:
         RETVAL
 
-Event timer_abs (double at, double interval, SV *cb)
+struct ev_periodic *periodic (NV at, NV interval, SV *cb)
 	ALIAS:
-        timer_abs_ns = 1
+        periodic_ns = 1
+        INIT:
+        CHECK_REPEAT (interval);
 	CODE:
-        RETVAL = e_new (NEWSV (0, 0), 0, cb);
-        RETVAL->timeout  = at;
-        RETVAL->interval = interval;
-        RETVAL->abstime  = 1;
-        if (!ix) e_start (RETVAL);
+        RETVAL = e_new (sizeof (struct ev_periodic), cb);
+        ev_periodic_set (RETVAL, at, interval);
+        if (!ix) ev_periodic_start (RETVAL);
 	OUTPUT:
         RETVAL
 
-Event signal (Signal signum, SV *cb)
+struct ev_signal *signal (Signal signum, SV *cb)
 	ALIAS:
         signal_ns = 1
 	CODE:
-        RETVAL = e_new (ST (0), EV_SIGNAL | EV_PERSIST, cb);
-        RETVAL->ev.ev_fd = signum;
-        if (!ix) e_start (RETVAL);
+        RETVAL = e_new (sizeof (struct ev_signal), cb);
+        ev_signal_set (RETVAL, signum);
+        if (!ix) ev_signal_start (RETVAL);
 	OUTPUT:
         RETVAL
+
+struct ev_idle *idle (SV *cb)
+	ALIAS:
+        idle_ns = 1
+	CODE:
+        RETVAL = e_new (sizeof (struct ev_idle), cb);
+        ev_idle_set (RETVAL);
+        if (!ix) ev_idle_start (RETVAL);
+	OUTPUT:
+        RETVAL
+
+struct ev_prepare *prepare (SV *cb)
+	ALIAS:
+        prepare_ns = 1
+	CODE:
+        RETVAL = e_new (sizeof (struct ev_prepare), cb);
+        ev_prepare_set (RETVAL);
+        if (!ix) ev_prepare_start (RETVAL);
+	OUTPUT:
+        RETVAL
+
+struct ev_check *check (SV *cb)
+	ALIAS:
+        check_ns = 1
+	CODE:
+        RETVAL = e_new (sizeof (struct ev_check), cb);
+        ev_check_set (RETVAL);
+        if (!ix) ev_check_start (RETVAL);
+	OUTPUT:
+        RETVAL
+
+struct ev_child *child (int pid, SV *cb)
+	ALIAS:
+        check_ns = 1
+	CODE:
+        RETVAL = e_new (sizeof (struct ev_check), cb);
+        ev_child_set (RETVAL, pid);
+        if (!ix) ev_child_start (RETVAL);
+	OUTPUT:
+        RETVAL
+
 
 PROTOTYPES: DISABLE
 
+MODULE = EV		PACKAGE = EV::Watcher	PREFIX = ev_
 
-MODULE = EV		PACKAGE = EV::Base	PREFIX = event_base_
+int ev_is_active (struct ev_watcher *w)
 
-Base new ()
+SV *cb (struct ev_watcher *w, SV *new_cb = 0)
 	CODE:
-        RETVAL = event_init ();
+{
+        RETVAL = newSVsv (w->cb_sv);
+
+        if (items > 1)
+          sv_setsv (w->cb_sv, new_cb);
+}
 	OUTPUT:
         RETVAL
 
-int event_base_dispatch (Base base)
+void trigger (struct ev_watcher *w, int revents = EV_NONE)
+	CODE:
+        w->cb (w, revents);
 
-int event_base_loop (Base base, int flags = 0)
+MODULE = EV		PACKAGE = EV::Io	PREFIX = ev_io_
 
-int event_base_loopexit (Base base, double after)
+void ev_io_start (struct ev_io *w)
+
+void ev_io_stop (struct ev_io *w)
+
+void DESTROY (struct ev_io *w)
+	CODE:
+        ev_io_stop (w);
+        e_destroy (w);
+
+void set (struct ev_io *w, SV *fh, int events)
 	CODE:
 {
-        struct timeval tv;
-        tv.tv_sec  = (long)after;
-        tv.tv_usec = (long)(after - tv.tv_sec) * 1e6;
-        event_base_loopexit (base, &tv);
+        int active = w->active;
+	int fd = sv_fileno (fh);
+        CHECK_FD (fh, fd);
+
+        if (active) ev_io_stop (w);
+
+        sv_setsv (w->fh, fh);
+        ev_io_set (w, fd, events);
+
+        if (active) ev_io_start (w);
 }
 
-int event_base_priority_init (Base base, int npri)
-
-void event_base_set (Base base, Event ev)
-	C_ARGS: base, &ev->ev
-
-void DESTROY (Base base)
-	CODE:
-        /*event_base_free (base);*/ /* causes too many problems */
-
-
-MODULE = EV		PACKAGE = EV::Event	PREFIX = event_
-
-int event_priority_set (Event ev, int pri)
-	C_ARGS: &ev->ev, pri
-
-int event_add (Event ev, double timeout = TIMEOUT_NONE)
-	CODE:
-        ev->timeout = timeout;
-        ev->abstime = 0;
-        RETVAL = e_start (ev);
-	OUTPUT:
-        RETVAL
-
-int event_start (Event ev)
-	CODE:
-        RETVAL = e_start (ev);
-	OUTPUT:
-        RETVAL
-
-int event_del (Event ev)
-	ALIAS:
-        stop = 0
-	CODE:
-        RETVAL = e_stop (ev);
-	OUTPUT:
-        RETVAL
-
-void DESTROY (Event ev)
-	CODE:
-        e_stop (ev);
-        SvREFCNT_dec (ev->cb);
-        SvREFCNT_dec (ev->fh);
-
-SV *cb (Event ev, SV *new_cb = 0)
-	CODE:
-        RETVAL = newSVsv (ev->cb);
-        if (items > 1)
-          sv_setsv (ev->cb, new_cb);
-	OUTPUT:
-        RETVAL
-
-SV *fh (Event ev, SV *new_fh = 0)
-	CODE:
-        RETVAL = newSVsv (ev->fh);
-        if (items > 1)
-          {
-            if (ev->active) event_del (&ev->ev);
-            sv_setsv (ev->fh, new_fh);
-            ev->ev.ev_fd  = sv_fileno (ev->fh);
-            ev->ev.ev_events &= ev->ev.ev_events & ~EV_SIGNAL;
-            if (ev->active) event_add (&ev->ev, e_tv (ev));
-          }
-	OUTPUT:
-        RETVAL
-
-SV *signal (Event ev, SV *new_signal = 0)
+SV *fh (struct ev_io *w, SV *new_fh = 0)
 	CODE:
 {
-	Signal signum;
-
-        if (items > 1)
-          signum = sv_signum (new_signal); /* may croak here */
-
-        RETVAL = newSVsv (ev->fh);
+        RETVAL = newSVsv (w->fh);
 
         if (items > 1)
           {
-            if (ev->active) event_del (&ev->ev);
-            sv_setsv (ev->fh, new_signal);
-            ev->ev.ev_fd     = signum;
-            ev->ev.ev_events |= EV_SIGNAL;
-            if (ev->active) event_add (&ev->ev, e_tv (ev));
+            int active = w->active;
+            if (active) ev_io_stop (w);
+
+            sv_setsv (w->fh, new_fh);
+            ev_io_set (w, sv_fileno (w->fh), w->events);
+
+            if (active) ev_io_start (w);
           }
 }
 	OUTPUT:
         RETVAL
 
-short events (Event ev, short new_events = EV_UNDEF)
+int events (struct ev_io *w, int new_events = EV_UNDEF)
 	CODE:
-        RETVAL = ev->ev.ev_events;
+{
+        RETVAL = w->events;
+
         if (items > 1)
           {
-            if (ev->active) event_del (&ev->ev);
-            ev->ev.ev_events = new_events;
-            if (ev->active) event_add (&ev->ev, e_tv (ev));
+            int active = w->active;
+            if (active) ev_io_stop (w);
+
+            ev_io_set (w, w->fd, new_events);
+
+            if (active) ev_io_start (w);
           }
+}
 	OUTPUT:
         RETVAL
 
-double timeout (Event ev, double new_timeout = 0., int repeat = 0)
+MODULE = EV		PACKAGE = EV::Signal	PREFIX = ev_signal_
+
+void ev_signal_start (struct ev_signal *w)
+
+void ev_signal_stop (struct ev_signal *w)
+
+void DESTROY (struct ev_signal *w)
 	CODE:
-        RETVAL = ev->timeout;
-        if (items > 1)
-          {
-            if (ev->active) event_del (&ev->ev);
-            ev->timeout  = new_timeout;
-            ev->interval = repeat;
-            ev->abstime  = 0;
-            if (ev->active) event_add (&ev->ev, e_tv (ev));
-          }
+        ev_signal_stop (w);
+        e_destroy (w);
+
+void set (struct ev_signal *w, SV *signal = 0)
+	CODE:
+{
+	Signal signum = sv_signum (signal); /* may croak here */
+        int active = w->active;
+
+        if (active) ev_signal_stop (w);
+        ev_signal_set (w, signum);
+        if (active) ev_signal_start (w);
+}
+
+MODULE = EV		PACKAGE = EV::Time
+
+MODULE = EV		PACKAGE = EV::Timer	PREFIX = ev_timer_
+
+void ev_timer_start (struct ev_timer *w)
+        INIT:
+        CHECK_REPEAT (w->repeat);
+
+void ev_timer_stop (struct ev_timer *w)
+
+void ev_timer_again (struct ev_timer *w)
+        INIT:
+        CHECK_REPEAT (w->repeat);
+
+void DESTROY (struct ev_timer *w)
+	CODE:
+        ev_timer_stop (w);
+        e_destroy (w);
+
+void set (struct ev_timer *w, NV after, NV repeat = 0.)
+        INIT:
+        CHECK_REPEAT (repeat);
+	CODE:
+{
+        int active = w->active;
+        if (active) ev_timer_stop (w);
+        ev_timer_set (w, after, repeat);
+        if (active) ev_timer_start (w);
+}
+
+MODULE = EV		PACKAGE = EV::Periodic	PREFIX = ev_periodic_
+
+void ev_periodic_start (struct ev_periodic *w)
+        INIT:
+        CHECK_REPEAT (w->interval);
+
+void ev_periodic_stop (struct ev_periodic *w)
+
+void DESTROY (struct ev_periodic *w)
+	CODE:
+        ev_periodic_stop (w);
+        e_destroy (w);
+
+void set (struct ev_periodic *w, NV at, NV interval = 0.)
+        INIT:
+        CHECK_REPEAT (interval);
+	CODE:
+{
+        int active = w->active;
+        if (active) ev_periodic_stop (w);
+        ev_periodic_set (w, at, interval);
+        if (active) ev_periodic_start (w);
+}
+
+MODULE = EV		PACKAGE = EV::Idle	PREFIX = ev_idle_
+
+void ev_idle_start (struct ev_idle *w)
+
+void ev_idle_stop (struct ev_idle *w)
+
+void DESTROY (struct ev_idle *w)
+	CODE:
+        ev_idle_stop (w);
+        e_destroy (w);
+
+MODULE = EV		PACKAGE = EV::Prepare	PREFIX = ev_check_
+
+void ev_prepare_start (struct ev_prepare *w)
+
+void ev_prepare_stop (struct ev_prepare *w)
+
+void DESTROY (struct ev_prepare *w)
+	CODE:
+        ev_prepare_stop (w);
+        e_destroy (w);
+
+MODULE = EV		PACKAGE = EV::Check	PREFIX = ev_check_
+
+void ev_check_start (struct ev_check *w)
+
+void ev_check_stop (struct ev_check *w)
+
+void DESTROY (struct ev_check *w)
+	CODE:
+        ev_check_stop (w);
+        e_destroy (w);
+
+MODULE = EV		PACKAGE = EV::Child	PREFIX = ev_child_
+
+void ev_child_start (struct ev_child *w)
+
+void ev_child_stop (struct ev_child *w)
+
+void DESTROY (struct ev_child *w)
+	CODE:
+        ev_child_stop (w);
+        e_destroy (w);
+
+void set (struct ev_child *w, int pid)
+	CODE:
+{
+        int active = w->active;
+        if (active) ev_child_stop (w);
+        ev_child_set (w, pid);
+        if (active) ev_child_start (w);
+}
+
+int status (struct ev_child *w)
+	CODE:
+        RETVAL = w->status;
 	OUTPUT:
         RETVAL
-
-void timeout_abs (Event ev, double at, double interval = 0.)
-	CODE:
-        if (ev->active) event_del (&ev->ev);
-        ev->timeout  = at;
-        ev->interval = interval;
-        ev->abstime  = 1;
-        if (ev->active) event_add (&ev->ev, e_tv (ev));
-
 
 MODULE = EV		PACKAGE = EV::DNS	PREFIX = evdns_
 
@@ -667,6 +727,7 @@ void evdns_search_add (char *domain)
 
 void evdns_search_ndots_set (int ndots)
 
+#if 0
 
 MODULE = EV		PACKAGE = EV::HTTP	PREFIX = evhttp_
 
@@ -705,6 +766,8 @@ MODULE = EV		PACKAGE = EV::HTTP::Request	PREFIX = evhttp_request_
 #HttpRequest new (SV *klass, SV *cb)
 
 #void DESTROY (struct evhttp_request *req);
+
+#endif
 
 
 

@@ -1,23 +1,19 @@
-Base		T_BASE
-Event		T_EVENT
 Signal		T_SIGNAL
+
+struct ev_watcher *	T_WATCHER
+struct ev_io *		T_WATCHER
+struct ev_timer *	T_WATCHER
+struct ev_periodic *	T_WATCHER
+struct ev_signal *	T_WATCHER
+struct ev_idle *	T_WATCHER
+struct ev_prepare *	T_WATCHER
+struct ev_check *	T_WATCHER
+struct ev_child *	T_WATCHER
 
 char *		T_PVbyte
 const char *	T_PVbyte
 
 INPUT
-
-T_BASE
-	if (!(SvROK ($arg) && SvOBJECT (SvRV ($arg))
-            && SvSTASH (SvRV ($arg)) == stash_base))
-          croak (\"object is not of type EV::Base\");
-        $var = (Base)SvIV (SvRV ($arg));
-
-T_EVENT
-	if (!(SvROK ($arg) && SvOBJECT (SvRV ($arg))
-            && SvSTASH (SvRV ($arg)) == stash_event))
-          croak (\"object is not of type EV::Event\");
-        $var = (Event)SvPVX (SvRV ($arg));
 
 T_SIGNAL
 	if (($var = sv_signum ($arg)) <= 0)
@@ -26,14 +22,19 @@ T_SIGNAL
 T_PVbyte
 	$var = ($type)SvPVbyte_nolen ($arg)
 
+T_WATCHER
+	if (!(SvROK ($arg) && SvOBJECT (SvRV ($arg))
+              && (SvSTASH (SvRV ($arg)) == stash_" . ($type =~ /ev_(\S+)/, "$1") . "
+                  || sv_derived_from ($arg, \"EV::" . ($type =~ /ev_(\S+)/, ucfirst "$1") . "\"))))
+          croak (\"object is not of type EV::" . ($type =~ /ev_(\S+)/, ucfirst "$1") . "\");
+	$var = ($type)SvPVX (SvRV ($arg));
+
 OUTPUT
-
-T_BASE
-	sv_setref_iv ($arg, "EV::Base", (IV)$var);
-
-T_EVENT
-	$arg = e_self ($var);
 
 T_PVbyte
 	sv_setpv ((SV *)$arg, $var);
+
+T_WATCHER
+	$arg = e_bless ((struct ev_watcher *)$var, stash_${ ($type =~ /ev_(\S+)/, \"$1") });
+
 
