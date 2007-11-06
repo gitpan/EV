@@ -1,4 +1,4 @@
-libev is a high-performanc3 event loop/event model with lots of features.
+libev is a high-performance event loop/event model with lots of features.
 
 It is modelled (very losely) after libevent
 (http://monkey.org/~provos/libevent/) and the Event perl module, but aims
@@ -6,7 +6,8 @@ to be faster and more correct, and also more featureful.
 
 DIFFERENCES AND COMPARISON TO LIBEVENT:
 
-(comparisons relative to libevent-1.3e and libev-0.00)
+(comparisons relative to libevent-1.3e and libev-0.00, see also the benchmark
+at http://libev.schmorp.de/bench.html).
 
 - multiple watchers can wait for the same event without deregistering others,
   both for file descriptors as well as signals.
@@ -26,9 +27,6 @@ DIFFERENCES AND COMPARISON TO LIBEVENT:
 
 - detects time jumps and adjusts timers
   (works for both forward and backward time jumps and also for absolute timers).
-
-- can correctly remove timers while executing callbacks
-  (libevent doesn't handle this reliably and can crash).
 
 - race-free signal processing
   (libevent may delay processing signals till after the next event).

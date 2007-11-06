@@ -41,7 +41,9 @@ SYNOPSIS
       # CHILD/PID STATUS CHANGES
 
       my $w = EV::child 666, sub {
-         my ($w, $revents, $status) = @_;
+         my ($w, $revents) = @_;
+         # my $pid = $w->rpid;
+         my $status = $w->rstatus;
       };
   
       # MAINLOOP
@@ -117,8 +119,12 @@ BASIC INTERFACE
     its name, e.g. EV::io has a non-starting variant EV::io_ns and so on.
 
     Please note that a watcher will automatically be stopped when the
-    watcher object is returned, so you *need* to keep the watcher objects
+    watcher object is destroyed, so you *need* to keep the watcher objects
     returned by the constructors.
+
+    Also, all methods changing some aspect of a watcher (->set, ->priority,
+    ->fh and so on) automatically stop and start it again if it is active,
+    which means pending events get lost.
 
   WATCHER TYPES
     Now lets move to the existing watcher types and asociated methods.
@@ -146,7 +152,17 @@ BASIC INTERFACE
     $current_cb = $w->cb
     $old_cb = $w->cb ($new_cb)
         Queries the callback on the watcher and optionally changes it. You
-        cna do this at any time.
+        can do this at any time without the watcher restarting.
+
+    $current_priority = $w->priority
+    $old_priority = $w->priority ($new_priority)
+        Queries the priority on the watcher and optionally changes it.
+        Pending watchers with higher priority will be invoked first. The
+        valid range of priorities lies between EV::MAXPRI (default 2) and
+        EV::MINPRI (default -2). If the priority is outside this range it
+        will automatically be normalised to the nearest valid priority.
+
+        The default priority of any newly-created weatcher is 0.
 
     $w->trigger ($revents)
         Call the callback *now* with the given event mask.
@@ -269,6 +285,11 @@ BASIC INTERFACE
         Reconfigures the watcher, see the constructor above for details. Can
         be at any time.
 
+    $current_signum = $w->signal
+    $old_signum = $w->signal ($new_signal)
+        Returns the previously set signal (always as a number not name) and
+        optionally set a new one.
+
     $w = EV::child $pid, $callback
     $w = EV::child_ns $pid, $callback
         Call the callback when a status change for pid $pid (or any pid if
@@ -276,9 +297,8 @@ BASIC INTERFACE
         receives a SIGCHLD, EV will fetch the outstanding exit/wait status
         for all changed/zombie children and call the callback.
 
-        Unlike all other callbacks, this callback will be called with an
-        additional third argument which is the exit status. See the
-        "waitpid" function for details.
+        You can access both status and pid by using the "rstatus" and "rpid"
+        methods on the watcher object.
 
         You can have as many pid watchers per pid as you want.
 
@@ -288,6 +308,18 @@ BASIC INTERFACE
     $w->set ($pid)
         Reconfigures the watcher, see the constructor above for details. Can
         be at any time.
+
+    $current_pid = $w->pid
+    $old_pid = $w->pid ($new_pid)
+        Returns the previously set process id and optionally set a new one.
+
+    $exit_status = $w->rstatus
+        Return the exit/wait status (as returned by waitpid, see the waitpid
+        entry in perlfunc).
+
+    $pid = $w->rpid
+        Return the pid of the awaited child (useful when you have installed
+        a watcher for all pids).
 
     $w = EV::idle $callback
     $w = EV::idle_ns $callback

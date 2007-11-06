@@ -14,11 +14,14 @@
 
 #define EV_COMMON			\
   SV *self; /* contains this struct */	\
-  SV *cb_sv, *fh;
+  SV *cb_sv, *fh
 
 #ifndef EV_PROTOTYPES
 # define EV_PROTOTYPES 0
 #endif
+
+#define EV_STANDALONE   1
+#define EV_MULTIPLICITY 0
 
 #include <ev.h>
 
@@ -33,14 +36,12 @@ struct EVAPI {
   /* signal number/name to signum */
   int (*sv_signum) (SV *fh);
 
-  /* libev global variables (note: references!) */
-  ev_tstamp *now;
-  int *method;
-  int *loop_done;
-
   /* same as libev functions */
+  ev_tstamp (*now)(void);
   ev_tstamp (*(time))(void);
+  int (*method)(void);
   void (*loop)(int flags);
+  void (*unloop)(int how);
   void (*once)(int fd, int events, ev_tstamp timeout, void (*cb)(int revents, void *arg), void *arg);
   void (*io_start)(struct ev_io *);
   void (*io_stop) (struct ev_io *);
@@ -64,11 +65,11 @@ struct EVAPI {
 #if !EV_PROTOTYPES
 # define sv_fileno(sv)         GEVAPI->sv_fileno (sv)
 # define sv_signum(sv)         GEVAPI->sv_signum (sv)
-# define ev_now               *GEVAPI->now
-# define ev_method            *GEVAPI->method
-# define ev_loop_done         *GEVAPI->loop_done
-# define ev_time()             GEVAPI->(time)()
+# define ev_now()              GEVAPI->now ()
+# define ev_time()             GEVAPI->(time) ()
+# define ev_method()           GEVAPI->method ()
 # define ev_loop(flags)        GEVAPI->loop (flags)
+# define ev_unloop()           GEVAPI->unloop (int how)
 # define ev_once(fd,events,timeout,cb,arg) GEVAPI->once ((fd), (events), (timeout), (cb), (arg))
 # define ev_io_start(w)        GEVAPI->io_start (w)
 # define ev_io_stop(w)         GEVAPI->io_stop  (w)

@@ -7,10 +7,28 @@
 #define EV_PROTOTYPES 1
 #include "EV/EVAPI.h"
 
+/* fix perl api breakage */
+#undef signal
+#undef sigaction
+
+/* due to bugs in OS X we have to use libev/ explicitly here */
 #include "libev/ev.c"
-#include "libev/event.h"
-#include "libev/event.c"
-#include "libev/evdns.c"
+#include "event.c"
+
+#ifndef WIN32
+#define DNS_USE_GETTIMEOFDAY_FOR_ID 1
+#if !defined (WIN32) && !defined(__CYGWIN__)
+# define HAVE_STRUCT_IN6_ADDR 1
+#endif
+#undef HAVE_STRTOK_R
+#undef strtok_r
+#define strtok_r fake_strtok_r
+#include "evdns.c"
+#endif
+
+#ifndef WIN32
+# include <pthread.h>
+#endif
 
 typedef int Signal;
 
@@ -26,6 +44,12 @@ static HV
   *stash_prepare,
   *stash_check,
   *stash_child;
+
+#ifndef SIG_SIZE
+/* kudos to Slaven Rezic for the idea */
+static char sig_size [] = { SIG_NUM };
+# define SIG_SIZE (sizeof (sig_size) + 1)
+#endif
 
 static int
 sv_signum (SV *sig)
@@ -85,7 +109,7 @@ e_new (int size, SV *cb_sv)
   return (void *)w;
 }
 
-static void *
+static void
 e_destroy (void *w_)
 {
   struct ev_watcher *w = w_;
@@ -134,9 +158,6 @@ e_cb (struct ev_watcher *w, int revents)
   PUSHs (sv_self);
   PUSHs (sv_events);
 
-  if (revents & EV_CHILD)
-    XPUSHs (sv_status = newSViv (((struct ev_child *)w)->status));
-
   PUTBACK;
   call_sv (w->cb_sv, G_DISCARD | G_VOID | G_EVAL);
   SP = PL_stack_base + mark; PUTBACK;
@@ -161,6 +182,7 @@ e_cb (struct ev_watcher *w, int revents)
 /////////////////////////////////////////////////////////////////////////////
 // DNS
 
+#ifndef WIN32
 static void
 dns_cb (int result, char type, int count, int ttl, void *addresses, void *arg)
 {
@@ -209,6 +231,7 @@ dns_cb (int result, char type, int count, int ttl, void *addresses, void *arg)
 
   LEAVE;
 }
+#endif
 
 #define CHECK_REPEAT(repeat) if (repeat < 0.) \
   croak (# repeat " value must be >= 0");
@@ -225,7 +248,6 @@ PROTOTYPES: ENABLE
 
 BOOT:
 {
-  int i;
   HV *stash = gv_stashpv ("EV", 1);
 
   static const struct {
@@ -233,6 +255,9 @@ BOOT:
     IV iv;
   } *civ, const_iv[] = {
 #   define const_iv(pfx, name) { # name, (IV) pfx ## name },
+    const_iv (EV_, MINPRI)
+    const_iv (EV_, MAXPRI)
+
     const_iv (EV_, UNDEF)
     const_iv (EV_, NONE)
     const_iv (EV_, TIMEOUT)
@@ -246,9 +271,14 @@ BOOT:
     const_iv (EV, LOOP_ONESHOT)
     const_iv (EV, LOOP_NONBLOCK)
 
-    const_iv (EV, METHOD_NONE)
+    const_iv (EV, METHOD_AUTO)
     const_iv (EV, METHOD_SELECT)
+    const_iv (EV, METHOD_POLL)
     const_iv (EV, METHOD_EPOLL)
+    const_iv (EV, METHOD_KQUEUE)
+    const_iv (EV, METHOD_DEVPOLL)
+    const_iv (EV, METHOD_PORT)
+    const_iv (EV, METHOD_ANY)
   };
 
   for (civ = const_iv + sizeof (const_iv) / sizeof (const_iv [0]); civ-- > const_iv; )
@@ -273,9 +303,9 @@ BOOT:
     evapi.rev            = EV_API_REVISION;
     evapi.sv_fileno      = sv_fileno;
     evapi.sv_signum      = sv_signum;
-    evapi.now            = &ev_now;
-    evapi.method         = &ev_method;
-    evapi.loop_done      = &ev_loop_done;
+    evapi.now            = ev_now;
+    evapi.method         = ev_method;
+    evapi.unloop         = ev_unloop;
     evapi.time           = ev_time;
     evapi.loop           = ev_loop;
     evapi.once           = ev_once;
@@ -300,31 +330,22 @@ BOOT:
     sv_setiv (sv, (IV)&evapi);
     SvREADONLY_on (sv);
   }
-
-  pthread_atfork (ev_fork_prepare, ev_fork_parent, ev_fork_child);
+#ifndef WIN32
+  pthread_atfork (0, 0, ev_default_fork);
+#endif
 }
 
 NV ev_now ()
-	CODE:
-        RETVAL = ev_now;
-	OUTPUT:
-        RETVAL
 
 int ev_method ()
-	CODE:
-        RETVAL = ev_method;
-	OUTPUT:
-        RETVAL
 
 NV ev_time ()
 
-void ev_init (int flags = 0)
+int ev_default_loop (int methods = EVMETHOD_AUTO)
 
 void ev_loop (int flags = 0)
 
-void ev_loop_done (int value = 1)
-	CODE:
-        ev_loop_done = value;
+void ev_unloop (int how = 1)
 
 struct ev_io *io (SV *fh, int events, SV *cb)
 	ALIAS:
@@ -410,7 +431,7 @@ struct ev_child *child (int pid, SV *cb)
 	ALIAS:
         check_ns = 1
 	CODE:
-        RETVAL = e_new (sizeof (struct ev_check), cb);
+        RETVAL = e_new (sizeof (struct ev_child), cb);
         ev_child_set (RETVAL, pid);
         if (!ix) ev_child_start (RETVAL);
 	OUTPUT:
@@ -438,6 +459,39 @@ void trigger (struct ev_watcher *w, int revents = EV_NONE)
 	CODE:
         w->cb (w, revents);
 
+int priority (struct ev_watcher *w, int new_priority = 0)
+	CODE:
+{
+        RETVAL = w->priority;
+
+        if (items > 1)
+          {
+            int active = ev_is_active (w);
+
+            if (new_priority < EV_MINPRI || new_priority > EV_MAXPRI)
+              croak ("watcher priority out of range, value must be between %d and %d, inclusive", EV_MINPRI, EV_MAXPRI);
+
+            if (active)
+              {
+                /* grrr. */
+                PUSHMARK (SP);
+                XPUSHs (ST (0));
+                call_method ("stop", G_DISCARD | G_VOID);
+              }
+
+            ev_set_priority (w, new_priority);
+
+            if (active)
+              {
+                PUSHMARK (SP);
+                XPUSHs (ST (0));
+                call_method ("start", G_DISCARD | G_VOID);
+              }
+          }
+}
+	OUTPUT:
+        RETVAL
+
 MODULE = EV		PACKAGE = EV::Io	PREFIX = ev_io_
 
 void ev_io_start (struct ev_io *w)
@@ -452,7 +506,7 @@ void DESTROY (struct ev_io *w)
 void set (struct ev_io *w, SV *fh, int events)
 	CODE:
 {
-        int active = w->active;
+        int active = ev_is_active (w);
 	int fd = sv_fileno (fh);
         CHECK_FD (fh, fd);
 
@@ -471,7 +525,7 @@ SV *fh (struct ev_io *w, SV *new_fh = 0)
 
         if (items > 1)
           {
-            int active = w->active;
+            int active = ev_is_active (w);
             if (active) ev_io_stop (w);
 
             sv_setsv (w->fh, new_fh);
@@ -490,7 +544,7 @@ int events (struct ev_io *w, int new_events = EV_UNDEF)
 
         if (items > 1)
           {
-            int active = w->active;
+            int active = ev_is_active (w);
             if (active) ev_io_stop (w);
 
             ev_io_set (w, w->fd, new_events);
@@ -512,18 +566,37 @@ void DESTROY (struct ev_signal *w)
         ev_signal_stop (w);
         e_destroy (w);
 
-void set (struct ev_signal *w, SV *signal = 0)
+void set (struct ev_signal *w, SV *signal)
 	CODE:
 {
 	Signal signum = sv_signum (signal); /* may croak here */
-        int active = w->active;
+        int active = ev_is_active (w);
 
         if (active) ev_signal_stop (w);
+
         ev_signal_set (w, signum);
+
         if (active) ev_signal_start (w);
 }
 
-MODULE = EV		PACKAGE = EV::Time
+int signal (struct ev_signal *w, SV *new_signal = 0)
+	CODE:
+{
+        RETVAL = w->signum;
+
+        if (items > 1)
+          {
+            Signal signum = sv_signum (new_signal); /* may croak here */
+            int active = ev_is_active (w);
+            if (active) ev_signal_stop (w);
+
+            ev_signal_set (w, signum);
+
+            if (active) ev_signal_start (w);
+          }
+}
+	OUTPUT:
+        RETVAL
 
 MODULE = EV		PACKAGE = EV::Timer	PREFIX = ev_timer_
 
@@ -547,7 +620,7 @@ void set (struct ev_timer *w, NV after, NV repeat = 0.)
         CHECK_REPEAT (repeat);
 	CODE:
 {
-        int active = w->active;
+        int active = ev_is_active (w);
         if (active) ev_timer_stop (w);
         ev_timer_set (w, after, repeat);
         if (active) ev_timer_start (w);
@@ -571,9 +644,11 @@ void set (struct ev_periodic *w, NV at, NV interval = 0.)
         CHECK_REPEAT (interval);
 	CODE:
 {
-        int active = w->active;
+        int active = ev_is_active (w);
         if (active) ev_periodic_stop (w);
+
         ev_periodic_set (w, at, interval);
+
         if (active) ev_periodic_start (w);
 }
 
@@ -624,17 +699,42 @@ void DESTROY (struct ev_child *w)
 void set (struct ev_child *w, int pid)
 	CODE:
 {
-        int active = w->active;
+        int active = ev_is_active (w);
         if (active) ev_child_stop (w);
+
         ev_child_set (w, pid);
+
         if (active) ev_child_start (w);
 }
 
-int status (struct ev_child *w)
+int pid (struct ev_child *w, int new_pid = 0)
 	CODE:
-        RETVAL = w->status;
+{
+        RETVAL = w->pid;
+
+        if (items > 1)
+          {
+            int active = ev_is_active (w);
+            if (active) ev_child_stop (w);
+
+            ev_child_set (w, new_pid);
+
+            if (active) ev_child_start (w);
+          }
+}
 	OUTPUT:
         RETVAL
+
+
+int rstatus (struct ev_child *w)
+	ALIAS:
+        rpid = 1
+	CODE:
+        RETVAL = ix ? w->rpid : w->rstatus;
+	OUTPUT:
+        RETVAL
+
+#ifndef WIN32
 
 MODULE = EV		PACKAGE = EV::DNS	PREFIX = evdns_
 
@@ -769,6 +869,7 @@ MODULE = EV		PACKAGE = EV::HTTP::Request	PREFIX = evhttp_request_
 
 #endif
 
+#endif
 
 
 

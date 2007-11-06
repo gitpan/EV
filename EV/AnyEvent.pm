@@ -51,7 +51,11 @@ sub signal {
 sub child {
    my ($class, %arg) = @_;
 
-   EV::child $arg{pid}, $arg{cb}
+   my $cb = $arg{cb};
+
+   EV::child $arg{pid}, sub {
+      $cb->($_[0]->rpid, $_[0]->rstatus);
+   }
 }
 
 sub condvar {

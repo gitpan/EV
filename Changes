@@ -1,5 +1,15 @@
 Revision history for Perl extension EV
 
+0.5  Tue Nov  6 17:37:44 CET 2007
+	- add signal and pid mutators.
+        - add rstatus/rpid accessors.
+        - updated libev (lower cost for clock monotonic).
+        - support event priorities.
+        - try to find SIG_SIZE on perls that don't have it (Slaven Rezic).
+        - improved signal handling, fixed child watchers.
+        - experimentally add kqueue backend, completely untested.
+        - ported to cygwin and native win32.
+
 0.1   Thu Nov  1 18:29:22 CET 2007
 	- replaced libevent by libev (total rewrite).
         - many bugfixes w.r.t. libevent.

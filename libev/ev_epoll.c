@@ -31,80 +31,92 @@
 
 #include <sys/epoll.h>
 
-static int epoll_fd = -1;
-
 static void
-epoll_modify (int fd, int oev, int nev)
+epoll_modify (EV_P_ int fd, int oev, int nev)
 {
   int mode = nev ? oev ? EPOLL_CTL_MOD : EPOLL_CTL_ADD : EPOLL_CTL_DEL;
 
   struct epoll_event ev;
-  ev.data.fd = fd;
+  ev.data.u64 = fd; /* use u64 to fully initialise the struct, for nicer strace etc. */
   ev.events =
       (nev & EV_READ ? EPOLLIN : 0)
       | (nev & EV_WRITE ? EPOLLOUT : 0);
 
-  epoll_ctl (epoll_fd, mode, fd, &ev);
+  if (epoll_ctl (epoll_fd, mode, fd, &ev))
+    if (errno != ENOENT /* on ENOENT the fd went away, so try to do the right thing */
+        || (nev && epoll_ctl (epoll_fd, EPOLL_CTL_ADD, fd, &ev)))
+      fd_kill (EV_A_ fd);
 }
 
 static void
-epoll_postfork_child (void)
+epoll_poll (EV_P_ ev_tstamp timeout)
 {
-  int fd;
-
-  epoll_fd = epoll_create (256);
-  fcntl (epoll_fd, F_SETFD, FD_CLOEXEC);
-
-  /* re-register interest in fds */
-  for (fd = 0; fd < anfdmax; ++fd)
-    if (anfds [fd].events)//D
-      epoll_modify (fd, EV_NONE, anfds [fd].events);
-}
-
-static struct epoll_event *events;
-static int eventmax;
-
-static void
-epoll_poll (ev_tstamp timeout)
-{
-  int eventcnt = epoll_wait (epoll_fd, events, eventmax, ceil (timeout * 1000.));
   int i;
+  int eventcnt = epoll_wait (epoll_fd, epoll_events, epoll_eventmax, ceil (timeout * 1000.));
 
   if (eventcnt < 0)
-    return;
+    {
+      if (errno != EINTR)
+        syserr ("(libev) epoll_wait");
+
+      return;
+    }
 
   for (i = 0; i < eventcnt; ++i)
     fd_event (
-      events [i].data.fd,
-      (events [i].events & (EPOLLOUT | EPOLLERR | EPOLLHUP) ? EV_WRITE : 0)
-      | (events [i].events & (EPOLLIN | EPOLLERR | EPOLLHUP) ? EV_READ : 0)
+      EV_A_
+      epoll_events [i].data.u64,
+      (epoll_events [i].events & (EPOLLOUT | EPOLLERR | EPOLLHUP) ? EV_WRITE : 0)
+      | (epoll_events [i].events & (EPOLLIN | EPOLLERR | EPOLLHUP) ? EV_READ : 0)
     );
 
   /* if the receive array was full, increase its size */
-  if (eventcnt == eventmax)
+  if (expect_false (eventcnt == epoll_eventmax))
     {
-      free (events);
-      eventmax += eventmax >> 1;
-      events = malloc (sizeof (struct epoll_event) * eventmax);
+      ev_free (epoll_events);
+      epoll_eventmax = array_roundsize (epoll_events, epoll_eventmax << 1);
+      epoll_events = ev_malloc (sizeof (struct epoll_event) * epoll_eventmax);
     }
 }
 
-static void
-epoll_init (int flags)
+static int
+epoll_init (EV_P_ int flags)
 {
   epoll_fd = epoll_create (256);
 
   if (epoll_fd < 0)
-    return;
+    return 0;
 
   fcntl (epoll_fd, F_SETFD, FD_CLOEXEC);
 
-  ev_method     = EVMETHOD_EPOLL;
   method_fudge  = 1e-3; /* needed to compensate for epoll returning early */
   method_modify = epoll_modify;
   method_poll   = epoll_poll;
 
-  eventmax = 64; /* intiial number of events receivable per poll */
-  events = malloc (sizeof (struct epoll_event) * eventmax);
+  epoll_eventmax = 64; /* intiial number of events receivable per poll */
+  epoll_events = ev_malloc (sizeof (struct epoll_event) * epoll_eventmax);
+
+  return EVMETHOD_EPOLL;
+}
+
+static void
+epoll_destroy (EV_P)
+{
+  close (epoll_fd);
+
+  ev_free (epoll_events);
+}
+
+static void
+epoll_fork (EV_P)
+{
+  close (epoll_fd);
+
+  while ((epoll_fd = epoll_create (256)) < 0)
+    syserr ("(libev) epoll_create");
+
+  fcntl (epoll_fd, F_SETFD, FD_CLOEXEC);
+
+  fd_rearm_all (EV_A);
 }
 

@@ -19,8 +19,13 @@ libev/README
 libev/Changes
 libev/ev.c
 libev/ev.h
+libev/ev_vars.h
+libev/ev_wrap.h
+libev/ev_win32.c
 libev/ev_select.c
 libev/ev_epoll.c
+libev/ev_poll.c
+libev/ev_kqueue.c
 
 libev/event.h
 libev/event.c

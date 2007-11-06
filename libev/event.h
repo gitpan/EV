@@ -31,25 +31,29 @@
 #ifndef _EVENT_H_
 #define _EVENT_H_
 
+#include <ev.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "ev.h"
-
 struct event
-  {
-  struct ev_io io;
+{
+  /* libev watchers we map onto */
+  union {
+    struct ev_io io;
+    struct ev_signal sig;
+  } iosig;
   struct ev_timer to;
-  struct ev_signal sig;
 
+  /* compatibility slots */
   struct event_base *ev_base;
-  int ev_fd;
-  short ev_events;
-  int ev_pri;
   void (*ev_callback)(int, short, void *arg);
   void *ev_arg;
+  int ev_fd;
+  int ev_pri;
   int ev_res;
+  short ev_events;
 };
 
 #define EV_PERSIST                 0x10
@@ -100,7 +104,6 @@ int event_once (int fd, short events, void (*cb)(int, short, void *), void *arg,
 
 int event_add (struct event *ev, struct timeval *tv);
 int event_del (struct event *ev);
-void event_active (struct event *ev, int fd, short events);
 
 int event_pending (struct event *ev, short, struct timeval *tv);
 
@@ -116,4 +119,13 @@ int event_base_dispatch (struct event_base *base);
 int event_base_once (struct event_base *base, int fd, short events, void (*cb)(int, short, void *), void *arg, struct timeval *tv);
 int event_base_priority_init (struct event_base *base, int fd);
 
+#ifndef EV_STANDALONE
+# include "event_compat.h"
 #endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+

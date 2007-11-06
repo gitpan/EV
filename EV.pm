@@ -42,7 +42,9 @@ EV - perl interface to libev, a high performance full-featured event loop
   # CHILD/PID STATUS CHANGES
 
   my $w = EV::child 666, sub {
-     my ($w, $revents, $status) = @_;
+     my ($w, $revents) = @_;
+     # my $pid = $w->rpid;
+     my $status = $w->rstatus;
   };
   
   # MAINLOOP
@@ -62,7 +64,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.1';
+   our $VERSION = '0.5';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -152,8 +154,12 @@ the same time, each constructor has a variant with a trailing C<_ns> in
 its name, e.g. EV::io has a non-starting variant EV::io_ns and so on.
 
 Please note that a watcher will automatically be stopped when the watcher
-object is returned, so you I<need> to keep the watcher objects returned by
+object is destroyed, so you I<need> to keep the watcher objects returned by
 the constructors.
+
+Also, all methods changing some aspect of a watcher (->set, ->priority,
+->fh and so on) automatically stop and start it again if it is active,
+which means pending events get lost.
 
 =head2 WATCHER TYPES
 
@@ -186,8 +192,20 @@ Returns true if the watcher is active, false otherwise.
 
 =item $old_cb = $w->cb ($new_cb)
 
-Queries the callback on the watcher and optionally changes it. You cna do
-this at any time.
+Queries the callback on the watcher and optionally changes it. You can do
+this at any time without the watcher restarting.
+
+=item $current_priority = $w->priority
+
+=item $old_priority = $w->priority ($new_priority)
+
+Queries the priority on the watcher and optionally changes it. Pending
+watchers with higher priority will be invoked first. The valid range of
+priorities lies between EV::MAXPRI (default 2) and EV::MINPRI (default
+-2). If the priority is outside this range it will automatically be
+normalised to the nearest valid priority.
+
+The default priority of any newly-created weatcher is 0.
 
 =item $w->trigger ($revents)
 
@@ -325,6 +343,13 @@ The C<signal_ns> variant doesn't start (activate) the newly created watcher.
 Reconfigures the watcher, see the constructor above for details. Can be at
 any time.
 
+=item $current_signum = $w->signal
+
+=item $old_signum = $w->signal ($new_signal)
+
+Returns the previously set signal (always as a number not name) and
+optionally set a new one.
+
 
 =item $w = EV::child $pid, $callback
 
@@ -335,9 +360,8 @@ if C<$pid> is 0) has been received. More precisely: when the process
 receives a SIGCHLD, EV will fetch the outstanding exit/wait status for all
 changed/zombie children and call the callback.
 
-Unlike all other callbacks, this callback will be called with an
-additional third argument which is the exit status. See the C<waitpid>
-function for details.
+You can access both status and pid by using the C<rstatus> and C<rpid>
+methods on the watcher object.
 
 You can have as many pid watchers per pid as you want.
 
@@ -347,6 +371,22 @@ The C<child_ns> variant doesn't start (activate) the newly created watcher.
 
 Reconfigures the watcher, see the constructor above for details. Can be at
 any time.
+
+=item $current_pid = $w->pid
+
+=item $old_pid = $w->pid ($new_pid)
+
+Returns the previously set process id and optionally set a new one.
+
+=item $exit_status = $w->rstatus
+
+Return the exit/wait status (as returned by waitpid, see the waitpid entry
+in perlfunc).
+
+=item $pid = $w->rpid
+
+Return the pid of the awaited child (useful when you have installed a
+watcher for all pids).
 
 
 =item $w = EV::idle $callback
@@ -437,7 +477,8 @@ our $DIED = sub {
    warn "EV: error in callback (ignoring): $@";
 };
 
-init;
+default_loop
+   or die 'EV: cannot initialise libev backend. bad $ENV{LIBEV_METHODS}?';
 
 push @AnyEvent::REGISTRY, [EV => "EV::AnyEvent"];
 

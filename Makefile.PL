@@ -36,14 +36,12 @@ print <<EOF;
 
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
-POSIX optionally offers support for a monotonic clock source. EV can
-take advantage of this clock source to detect time jumps reliably. This
-will usually slow down EV a tiny amount, but this is usually
-well-invested. Unfortunately, some systems are bound to be broken, so
-you can disable this here. Whatever your reasons, you can completely
-disable the detection and use of this monotonic clock by answering 'n'
-here. Support for this clock type will otherwise be autodetected at both
-compile- and runtime.
+POSIX optionally offers support for a monotonic clock source. EV
+can take advantage of this clock source to detect time jumps
+reliably. Unfortunately, some systems are bound to be broken, so you can
+disable this here: you can completely disable the detection and use of
+the monotonic clock by answering 'n' here. Support for this clock type
+will otherwise be autodetected at both compile- and runtime.
 
 EOF
 
@@ -74,14 +72,37 @@ print <<EOF;
 
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
-EV needs the functions pthread_atfork and clock_gettime. On most systems
-you need some special libraries for this (such as -lrt and -lpthread). You can
-specify additional libraries to provide these calls now, or accept the default.
+EV by default uses select, which makes it hard to write efficient servers,
+especially if the number of active conencitons is much lower than the open
+ones. GNU/Linux systems have a more scalable method called "epoll", which
+EV can use. For this to work, both your kernel and glibc have to support
+epoll, but if you can compile it, the detection will be done at runtime,
+and EV will safely fall back to using select when epoll isn't available.
+If unsure, accept the default.
 
 EOF
 
-$LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "-lpthread -lrt";
+if (prompt ("Enable epoll backend (y/n)?", (-e "/usr/include/sys/epoll.h") ? "y" : "n") =~ /[yY]/) {
+   $DEFINE .= " -DEV_USE_EPOLL";
+} 
 
+print <<EOF;
+
+
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
+Similarly to the epoll backend above, EV can take advantage of kqueue on
+many BSD systems (it seems to be broken on Mac OS X though). The kqueue
+backend has not been tested, however, so it is disabled by default. Please
+test (and preferably fix) the kqueue backend when you have a machine
+supporting it.  Support for kqueue will be detected at runtime, with a
+safe fallback to other methods when it cannot be used.
+
+EOF
+
+if (prompt ("Enable kqueue backend (y/n)?", (-e "/usr/include/sys/event.h-disabled") ? "y" : "n") =~ /[yY]/) {
+   $DEFINE .= " -DEV_USE_KQUEUE";
+} 
 
 print <<EOF;
 
@@ -89,14 +110,14 @@ print <<EOF;
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
 EV needs the functions pthread_atfork and clock_gettime. On most systems
-you need some special libraries for this (such as -lrt and -lpthread). You can
-specify additional libraries to provide these calls now, or accept the default.
+you need some special libraries for this (such as -lrt and -lpthread). You
+can specify additional libraries to provide these calls now, or accept the
+default.
 
 EOF
 
-if (prompt ("Enable epoll backend (y/n)?", (-e "/usr/include/sys/epoll.h") ? "y" : "n") =~ /[yY]/) {
-   $DEFINE .= " -DEV_USE_EPOLL";
-} 
+$LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "-lpthread -lrt";
+
 
 print <<EOF;
 
