@@ -64,7 +64,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.5';
+   our $VERSION = '0.51';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }

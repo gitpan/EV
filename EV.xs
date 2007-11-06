@@ -112,7 +112,7 @@ e_new (int size, SV *cb_sv)
 static void
 e_destroy (void *w_)
 {
-  struct ev_watcher *w = w_;
+  struct ev_watcher *w = (struct ev_watcher *)w_;
 
   SvREFCNT_dec (w->fh   ); w->fh    = 0;
   SvREFCNT_dec (w->cb_sv); w->cb_sv = 0;

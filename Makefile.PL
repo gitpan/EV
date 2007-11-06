@@ -100,7 +100,7 @@ safe fallback to other methods when it cannot be used.
 
 EOF
 
-if (prompt ("Enable kqueue backend (y/n)?", (-e "/usr/include/sys/event.h-disabled") ? "y" : "n") =~ /[yY]/) {
+if (prompt ("Enable kqueue backend (y/n)?", (-e "/usr/include/sys/event.h") ? "y" : "n") =~ /[yY]/) {
    $DEFINE .= " -DEV_USE_KQUEUE";
 } 
 

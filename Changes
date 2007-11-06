@@ -1,5 +1,10 @@
 Revision history for Perl extension EV
 
+0.51 Tue Nov  6 19:50:22 CET 2007
+	- fix kqueue/poll compilation issue.
+        - work around design issues in kqueue.
+        - enable kqueue by default, seems to work.
+
 0.5  Tue Nov  6 17:37:44 CET 2007
 	- add signal and pid mutators.
         - add rstatus/rpid accessors.

@@ -1,4 +1,4 @@
-/* $Id: evdns.c,v 1.16 2007-11-06 16:09:37 root Exp $ */
+/* $Id: evdns.c,v 1.19 2007-11-06 18:49:32 root Exp $ */
 
 /* The original version of this module was written by Adam Langley; for
  * a history of modifications, check out the subversion logs.
@@ -80,6 +80,7 @@
 
 #include <string.h>
 #include <fcntl.h>
+#include <sys/time.h>
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -87,6 +88,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
 #include <limits.h>
 #include <sys/stat.h>
 #include <ctype.h>
