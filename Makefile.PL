@@ -134,7 +134,7 @@ WriteMakefile(
 	           },
     depend => {
        "EV.c" => "EV/EVAPI.h "
-               . "libev/ev.c libev/ev.h libev/ev_epoll.c libev/ev_select.c "
+               . "libev/ev.c libev/ev.h libev/ev_epoll.c libev/ev_select.c libev/ev_kqueue.c libev/ev_poll.c "
                . "libev/event.h libev/event.c libev/evdns.h libev/evdns.c",
     },
     INC       => "-Ilibev",

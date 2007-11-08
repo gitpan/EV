@@ -18,7 +18,7 @@ EV - perl interface to libev, a high performance full-featured event loop
   
   undef $w; # destroy event watcher again
   
-  my $w = EV::periodic 0, 60, sub {
+  my $w = EV::periodic 0, 60, 0, sub {
      warn "is called every minute, on the minute, exactly";
   };
   
@@ -64,7 +64,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.51';
+   our $VERSION = '0.6';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -188,6 +188,18 @@ regardless of wether the watcher was active or not.
 
 Returns true if the watcher is active, false otherwise.
 
+=item $current_data = $w->data
+
+=item $old_data = $w->data ($new_data)
+
+Queries a freely usable data scalar on the watcher and optionally changes
+it. This is a way to associate custom data with a watcher:
+
+   my $w = EV::timer 60, 0, sub {
+      warn $_[0]->data;
+   };
+   $w->data ("print me!");
+
 =item $current_cb = $w->cb
 
 =item $old_cb = $w->cb ($new_cb)
@@ -287,39 +299,92 @@ C<$repeat>, and then, in the read/write watcher, run the C<again> method
 on the timeout.
 
 
-=item $w = EV::periodic $at, $interval, $callback
+=item $w = EV::periodic $at, $interval, $reschedule_cb, $callback
 
-=item $w = EV::periodic_ns $at, $interval, $callback
+=item $w = EV::periodic_ns $at, $interval, $reschedule_cb, $callback
 
-Similar to EV::timer, but the time is given as an absolute point in time
-(C<$at>), plus an optional C<$interval>.
+Similar to EV::timer, but is not based on relative timeouts but on
+absolute times. Apart from creating "simple" timers that trigger "at" the
+specified time, it can also be used for non-drifting absolute timers and
+more complex, cron-like, setups that are not adversely affected by time
+jumps (i.e. when the system clock is changed by explicit date -s or other
+means such as ntpd). It is also the most complex watcher type in EV.
 
-If the C<$interval> is zero, then the callback will be called at the time
-C<$at> if that is in the future, or as soon as possible if it is in the
-past. It will not automatically repeat.
+It has three distinct "modes":
 
-If the C<$interval> is nonzero, then the watcher will always be scheduled
-to time out at the next C<$at + N * $interval> time.
+=over 4
 
-This can be used to schedule a callback to run at very regular intervals,
-as long as the processing time is less then the interval (otherwise
-obviously events will be skipped).
+=item * absolute timer ($interval = $reschedule_cb = 0)
+
+This time simply fires at the wallclock time C<$at> and doesn't repeat. It
+will not adjust when a time jump occurs, that is, if it is to be run
+at January 1st 2011 then it will run when the system time reaches or
+surpasses this time.
+
+=item * non-repeating interval timer ($interval > 0, $reschedule_cb = 0)
+
+In this mode the watcher will always be scheduled to time out at the
+next C<$at + N * $interval> time (for some integer N) and then repeat,
+regardless of any time jumps.
+
+This can be used to create timers that do not drift with respect to system
+time:
+
+   my $hourly = EV::periodic 0, 3600, 0, sub { print "once/hour\n" };
+
+That doesn't mean there will always be 3600 seconds in between triggers,
+but only that the the clalback will be called when the system time shows a
+full hour (UTC).
 
 Another way to think about it (for the mathematically inclined) is that
-EV::periodic will try to run the callback at the next possible time where
-C<$time = $at (mod $interval)>, regardless of any time jumps.
+EV::periodic will try to run the callback in this mode at the next
+possible time where C<$time = $at (mod $interval)>, regardless of any time
+jumps.
 
-This periodic timer is based on "wallclock time", that is, if the clock
-changes (C<ntp>, C<date -s> etc.), then the timer will nevertheless run at
-the specified time. This means it will never drift (it might jitter, but
-it will not drift).
+=item * manual reschedule mode ($reschedule_cb = coderef)
+
+In this mode $interval and $at are both being ignored. Instead, each time
+the periodic watcher gets scheduled, the first callback ($reschedule_cb)
+will be called with the watcher as first, and the current time as second
+argument.
+
+I<This callback MUST NOT stop or destroy this or any other periodic
+watcher, ever>. If you need to stop it, return 1e30 and stop it
+afterwards.
+
+It must return the next time to trigger, based on the passed time value
+(that is, the lowest time value larger than to the second argument). It
+will usually be called just before the callback will be triggered, but
+might be called at other times, too.
+
+This can be used to create very complex timers, such as a timer that
+triggers on each midnight, local time (actually 24 hours after the last
+midnight, to keep the example simple. If you know a way to do it correctly
+in about the same space (without requiring elaborate modules), drop me a
+note :):
+
+   my $daily = EV::periodic 0, 0, sub {
+      my ($w, $now) = @_;
+
+      use Time::Local ();
+      my (undef, undef, undef, $d, $m, $y) = localtime $now;
+      86400 + Time::Local::timelocal 0, 0, 0, $d, $m, $y
+   }, sub {
+      print "it's midnight or likely shortly after, now\n";
+   };
+
+=back
 
 The C<periodic_ns> variant doesn't start (activate) the newly created watcher.
 
-=item $w->set ($at, $interval)
+=item $w->set ($at, $interval, $reschedule_cb)
 
 Reconfigures the watcher, see the constructor above for details. Can be at
 any time.
+
+=item $w->again
+
+Simply stops and starts the watcher again.
 
 
 =item $w = EV::signal $signal, $callback

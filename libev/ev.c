@@ -543,7 +543,11 @@ sighandler (int signum)
     {
       int old_errno = errno;
       gotsig = 1;
+#ifdef WIN32
+      send (sigpipe [1], &signum, 1, MSG_DONTWAIT);
+#else
       write (sigpipe [1], &signum, 1);
+#endif
       errno = old_errno;
     }
 }
@@ -554,7 +558,11 @@ sigcb (EV_P_ struct ev_io *iow, int revents)
   WL w;
   int signum;
 
+#ifdef WIN32
+  recv (sigpipe [0], &revents, 1, MSG_DONTWAIT);
+#else
   read (sigpipe [0], &revents, 1);
+#endif
   gotsig = 0;
 
   for (signum = signalmax; signum--; )
@@ -891,6 +899,18 @@ ev_default_fork (void)
 
 /*****************************************************************************/
 
+static int
+any_pending (EV_P)
+{
+  int pri;
+
+  for (pri = NUMPRI; pri--; )
+    if (pendingcnt [pri])
+      return 1;
+
+  return 0;
+}
+
 static void
 call_pending (EV_P)
 {
@@ -942,7 +962,14 @@ periodics_reify (EV_P)
       assert (("inactive timer on periodic heap detected", ev_is_active (w)));
 
       /* first reschedule or stop timer */
-      if (w->interval)
+      if (w->reschedule_cb)
+        {
+          ev_tstamp at = ((WT)w)->at = w->reschedule_cb (w, rt_now + 0.0001);
+
+          assert (("ev_periodic reschedule callback returned time in the past", ((WT)w)->at > rt_now));
+          downheap ((WT *)periodics, periodiccnt, 0);
+        }
+      else if (w->interval)
         {
           ((WT)w)->at += floor ((rt_now - ((WT)w)->at) / w->interval + 1.) * w->interval;
           assert (("ev_periodic timeout in the past detected while processing timers, negative interval?", ((WT)w)->at > rt_now));
@@ -965,19 +992,15 @@ periodics_reschedule (EV_P)
     {
       struct ev_periodic *w = periodics [i];
 
-      if (w->interval)
-        {
-          ev_tstamp diff = ceil ((rt_now - ((WT)w)->at) / w->interval) * w->interval;
-
-          if (fabs (diff) >= 1e-4)
-            {
-              ev_periodic_stop (EV_A_ w);
-              ev_periodic_start (EV_A_ w);
-
-              i = 0; /* restart loop, inefficient, but time jumps should be rare */
-            }
-        }
+      if (w->reschedule_cb)
+        ((WT)w)->at = w->reschedule_cb (w, rt_now);
+      else if (w->interval)
+        ((WT)w)->at += ceil ((rt_now - ((WT)w)->at) / w->interval) * w->interval;
     }
+
+  /* now rebuild the heap */
+  for (i = periodiccnt >> 1; i--; )
+    downheap ((WT *)periodics, periodiccnt, i);
 }
 
 inline int
@@ -1083,7 +1106,7 @@ ev_loop (EV_P_ int flags)
 
       /* calculate blocking time */
 
-      /* we only need this for !monotonic clockor timers, but as we basically
+      /* we only need this for !monotonic clock or timers, but as we basically
          always have timers, we just calculate it always */
 #if EV_USE_MONOTONIC
       if (expect_true (have_monotonic))
@@ -1126,7 +1149,7 @@ ev_loop (EV_P_ int flags)
       periodics_reify (EV_A); /* absolute timers called first */
 
       /* queue idle watchers unless io or timers are pending */
-      if (!pendingcnt)
+      if (idlecnt && !any_pending (EV_A))
         queue_events (EV_A_ (W *)idles, idlecnt, EV_IDLE);
 
       /* queue check watchers, to be executed first */
@@ -1291,11 +1314,14 @@ ev_periodic_start (EV_P_ struct ev_periodic *w)
   if (ev_is_active (w))
     return;
 
-  assert (("ev_periodic_start called with negative interval value", w->interval >= 0.));
-
-  /* this formula differs from the one in periodic_reify because we do not always round up */
-  if (w->interval)
-    ((WT)w)->at += ceil ((rt_now - ((WT)w)->at) / w->interval) * w->interval;
+  if (w->reschedule_cb)
+    ((WT)w)->at = w->reschedule_cb (w, rt_now);
+  else if (w->interval)
+    {
+      assert (("ev_periodic_start called with negative interval value", w->interval >= 0.));
+      /* this formula differs from the one in periodic_reify because we do not always round up */
+      ((WT)w)->at += ceil ((rt_now - ((WT)w)->at) / w->interval) * w->interval;
+    }
 
   ev_start (EV_A_ (W)w, ++periodiccnt);
   array_needsize (struct ev_periodic *, periodics, periodicmax, periodiccnt, (void));
@@ -1321,6 +1347,13 @@ ev_periodic_stop (EV_P_ struct ev_periodic *w)
     }
 
   ev_stop (EV_A_ (W)w);
+}
+
+void
+ev_periodic_again (EV_P_ struct ev_periodic *w)
+{
+  ev_periodic_stop (EV_A_ w);
+  ev_periodic_start (EV_A_ w);
 }
 
 void

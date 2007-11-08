@@ -1,5 +1,12 @@
 Revision history for Perl extension EV
 
+0.6  Thu Nov  8 18:23:43 CET 2007
+	- better native win32 support (not relevant for perl usually).
+        - fix idle watchers.
+        - implement and document periodic reschedule callbacks.
+        - do not run dns test on !linux platforms (actually to exclude win32).
+        - fix (unused in EV :) poll backend.
+
 0.51 Tue Nov  6 19:50:22 CET 2007
 	- fix kqueue/poll compilation issue.
         - work around design issues in kqueue.

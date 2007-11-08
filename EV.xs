@@ -11,6 +11,8 @@
 #undef signal
 #undef sigaction
 
+#define EV_SELECT_USE_WIN32_HANDLES 0
+#define EV_SELECT_USE_FD_SET 0
 /* due to bugs in OS X we have to use libev/ explicitly here */
 #include "libev/ev.c"
 #include "event.c"
@@ -102,6 +104,7 @@ e_new (int size, SV *cb_sv)
 
   ev_watcher_init (w, e_cb);
 
+  w->data  = 0;
   w->fh    = 0;
   w->cb_sv = newSVsv (cb_sv);
   w->self  = self;
@@ -116,6 +119,7 @@ e_destroy (void *w_)
 
   SvREFCNT_dec (w->fh   ); w->fh    = 0;
   SvREFCNT_dec (w->cb_sv); w->cb_sv = 0;
+  SvREFCNT_dec (w->data ); w->data  = 0;
 }
 
 static SV *
@@ -177,6 +181,49 @@ e_cb (struct ev_watcher *w, int revents)
       call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
       SP = PL_stack_base + mark; PUTBACK;
     }
+}
+
+static ev_tstamp
+e_periodic_cb (struct ev_periodic *w, ev_tstamp now)
+{
+  ev_tstamp retval;
+  int count;
+  dSP;
+
+  ENTER;
+  SAVETMPS;
+
+  PUSHMARK (SP);
+  EXTEND (SP, 2);
+  PUSHs (newRV_inc (w->self)); /* w->self MUST be blessed by now */
+  PUSHs (newSVnv (now));
+
+  PUTBACK;
+  count = call_sv (w->fh, G_SCALAR | G_EVAL);
+  SPAGAIN;
+
+  if (SvTRUE (ERRSV))
+    {
+      PUSHMARK (SP);
+      PUTBACK;
+      call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
+      SPAGAIN;
+    }
+
+  if (count > 0)
+    {
+      retval = SvNV (TOPs);
+
+      if (retval < now)
+        retval = now;
+    }
+  else
+    retval = now;
+
+  FREETMPS;
+  LEAVE;
+
+  return retval;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -375,15 +422,20 @@ struct ev_timer *timer (NV after, NV repeat, SV *cb)
 	OUTPUT:
         RETVAL
 
-struct ev_periodic *periodic (NV at, NV interval, SV *cb)
+SV *periodic (NV at, NV interval, SV *reschedule_cb, SV *cb)
 	ALIAS:
         periodic_ns = 1
         INIT:
         CHECK_REPEAT (interval);
 	CODE:
-        RETVAL = e_new (sizeof (struct ev_periodic), cb);
-        ev_periodic_set (RETVAL, at, interval);
-        if (!ix) ev_periodic_start (RETVAL);
+{
+  	struct ev_periodic *w;
+        w = e_new (sizeof (struct ev_periodic), cb);
+        w->fh = SvTRUE (reschedule_cb) ? newSVsv (reschedule_cb) : 0;
+        ev_periodic_set (w, at, interval, w->fh ? e_periodic_cb : 0);
+        RETVAL = e_bless ((struct ev_watcher *)w, stash_periodic);
+        if (!ix) ev_periodic_start (w);
+}
 	OUTPUT:
         RETVAL
 
@@ -451,6 +503,14 @@ SV *cb (struct ev_watcher *w, SV *new_cb = 0)
 
         if (items > 1)
           sv_setsv (w->cb_sv, new_cb);
+}
+	OUTPUT:
+        RETVAL
+
+SV *data (struct ev_watcher *w, SV *new_data = 0)
+	CODE:
+{
+	RETVAL = w->data ? newSVsv (w->data) : &PL_sv_undef;
 }
 	OUTPUT:
         RETVAL
@@ -634,12 +694,14 @@ void ev_periodic_start (struct ev_periodic *w)
 
 void ev_periodic_stop (struct ev_periodic *w)
 
+void ev_periodic_again (struct ev_periodic *w)
+
 void DESTROY (struct ev_periodic *w)
 	CODE:
         ev_periodic_stop (w);
         e_destroy (w);
 
-void set (struct ev_periodic *w, NV at, NV interval = 0.)
+void set (struct ev_periodic *w, NV at, NV interval = 0., SV *reschedule_cb = &PL_sv_undef)
         INIT:
         CHECK_REPEAT (interval);
 	CODE:
@@ -647,7 +709,9 @@ void set (struct ev_periodic *w, NV at, NV interval = 0.)
         int active = ev_is_active (w);
         if (active) ev_periodic_stop (w);
 
-        ev_periodic_set (w, at, interval);
+        SvREFCNT_dec (w->fh);
+        w->fh = SvTRUE (reschedule_cb) ? newSVsv (reschedule_cb) : 0;
+        ev_periodic_set (w, at, interval, w->fh ? e_periodic_cb : 0);
 
         if (active) ev_periodic_start (w);
 }

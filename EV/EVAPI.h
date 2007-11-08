@@ -14,7 +14,7 @@
 
 #define EV_COMMON			\
   SV *self; /* contains this struct */	\
-  SV *cb_sv, *fh
+  SV *cb_sv, *fh, *data
 
 #ifndef EV_PROTOTYPES
 # define EV_PROTOTYPES 0
