@@ -8,7 +8,6 @@ typemap
 EV.xs
 EV.pm
 EV/EVAPI.h
-EV/AnyEvent.pm
 EV/DNS.pm
 EV/MakeMaker.pm
 
@@ -29,6 +28,6 @@ libev/ev_kqueue.c
 
 libev/event.h
 libev/event.c
-libev/evdns.h
-libev/evdns.c
+evdns.h
+evdns.c
 META.yml                                 Module meta-data (added by MakeMaker)

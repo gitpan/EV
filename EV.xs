@@ -25,6 +25,7 @@
 #undef HAVE_STRTOK_R
 #undef strtok_r
 #define strtok_r fake_strtok_r
+#include "evdns.h"
 #include "evdns.c"
 #endif
 

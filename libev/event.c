@@ -37,8 +37,11 @@
 # include <sys/time.h>
 #endif
 
-#include "ev.h"
-#include "event.h"
+#ifdef EV_EVENT_H
+# include EV_EVENT_H
+#else
+# include "event.h"
+#endif
 
 #if EV_MULTIPLICITY
 # define dLOOPev struct ev_loop *loop = (struct ev_loop *)ev->ev_base
@@ -246,6 +249,20 @@ int event_del (struct event *ev)
     ev_timer_stop (EV_A_ &ev->to);
 
   return 0;
+}
+
+void event_active (struct event *ev, int res, short ncalls)
+{
+  dLOOPev;
+
+  if (res & EV_TIMEOUT)
+    ev_feed_event (EV_A_ &ev->to, res & EV_TIMEOUT);
+
+  if (res & EV_SIGNAL)
+    ev_feed_event (EV_A_ &ev->iosig.sig, res & EV_SIGNAL);
+
+  if (res & (EV_READ | EV_WRITE))
+    ev_feed_event (EV_A_ &ev->iosig.io, res & (EV_READ | EV_WRITE));
 }
 
 int event_pending (struct event *ev, short events, struct timeval *tv)

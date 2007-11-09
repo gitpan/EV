@@ -135,7 +135,7 @@ WriteMakefile(
     depend => {
        "EV.c" => "EV/EVAPI.h "
                . "libev/ev.c libev/ev.h libev/ev_epoll.c libev/ev_select.c libev/ev_kqueue.c libev/ev_poll.c "
-               . "libev/event.h libev/event.c libev/evdns.h libev/evdns.c",
+               . "libev/event.h libev/event.c evdns.h evdns.c libev/ev_vars.h libev/ev_wrap.h",
     },
     INC       => "-Ilibev",
     DEFINE    => "$DEFINE",
@@ -144,7 +144,6 @@ WriteMakefile(
     VERSION_FROM => "EV.pm",
     PM           => {
     		    'EV.pm'		=> '$(INST_LIBDIR)/EV.pm',
-    		    'EV/AnyEvent.pm'	=> '$(INST_LIBDIR)/EV/AnyEvent.pm',
                     'EV/DNS.pm'		=> '$(INST_LIBDIR)/EV/DNS.pm',
     		    'EV/EVAPI.h'	=> '$(INST_LIBDIR)/EV/EVAPI.h',
     		    'EV/MakeMaker.pm'	=> '$(INST_LIBDIR)/EV/MakeMaker.pm',

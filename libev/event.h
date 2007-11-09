@@ -28,14 +28,20 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _EVENT_H_
-#define _EVENT_H_
+#ifndef EVENT_H__
+#define EVENT_H__
 
-#include <ev.h>
+#ifdef EV_H
+# include EV_H
+#else
+# include <ev.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct event_base;
 
 struct event
 {
@@ -104,13 +110,12 @@ int event_once (int fd, short events, void (*cb)(int, short, void *), void *arg,
 
 int event_add (struct event *ev, struct timeval *tv);
 int event_del (struct event *ev);
+void event_active (struct event *ev, int res, short ncalls); /* ncalls is being ignored */
 
 int event_pending (struct event *ev, short, struct timeval *tv);
 
 int event_priority_init (int npri);
 int event_priority_set (struct event *ev, int pri);
-
-struct event_base;
 
 int event_base_set (struct event_base *base, struct event *ev);
 int event_base_loop (struct event_base *base, int);
@@ -120,7 +125,7 @@ int event_base_once (struct event_base *base, int fd, short events, void (*cb)(i
 int event_base_priority_init (struct event_base *base, int fd);
 
 #ifndef EV_STANDALONE
-# include "event_compat.h"
+# include <event_compat.h>
 #endif
 
 #ifdef __cplusplus

@@ -64,7 +64,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.6';
+   our $VERSION = '0.7';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -544,8 +544,6 @@ our $DIED = sub {
 
 default_loop
    or die 'EV: cannot initialise libev backend. bad $ENV{LIBEV_METHODS}?';
-
-push @AnyEvent::REGISTRY, [EV => "EV::AnyEvent"];
 
 1;
 
