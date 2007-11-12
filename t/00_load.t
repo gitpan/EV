@@ -1,4 +1,4 @@
-BEGIN { $| = 1; print "1..4\n"; }
+BEGIN { $| = 1; print "1..3\n"; }
 
 $^W = 0; # work around some bugs in perl
 
@@ -8,5 +8,4 @@ if ($^O eq "linux") {
 } else {
    print "ok 2 # skipped on non-gnu/linux\n";
 }
-print eval { require EV::AnyEvent  } ? "" : "not ", "ok 3 # $@\n";
-print eval { require EV::MakeMaker } ? "" : "not ", "ok 4 # $@\n";
+print eval { require EV::MakeMaker } ? "" : "not ", "ok 3 # $@\n";

@@ -1,8 +1,16 @@
 Revision history for Perl extension EV
 
+0.8  Mon Nov 12 02:28:46 CET 2007
+	- fix "testsuite" again :().
+        - fix check/idle/prepare/child watcher stop.
+        - enourmously many fixes.
+        - rewritten select backend (mostly for win32).
+        - cache socket handles on win32.
+        - provide considerably finer control over configuration.
+
 0.7  Fri Nov  9 20:37:58 CET 2007
 	- move AnyEvent adaptor into the AnyEvent module.
-        - use provate copy of evdns.[ch].
+        - use private copy of evdns.[ch].
         - many minor fixes.
 
 0.6  Thu Nov  8 18:23:43 CET 2007

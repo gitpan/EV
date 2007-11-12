@@ -72,6 +72,57 @@ print <<EOF;
 
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
+EV can use various backends with various portability issue. The select
+backend is the most portable and makes for a good fallback, but it can be
+limited to a low number of file descriptors and/or might not compile.  If
+you have problems with compiling ev_select., you might try to play around
+with disabling it here, or forcing it to use the fd_set provided by your
+OS, via the next question. I highly recommend keeping it in.
+
+EOF
+
+if (prompt ("Enable select backend (y/n)?", "y") =~ /[yY]/) {
+   $DEFINE .= " -DEV_USE_SELECT";
+
+   print <<EOF;
+
+
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
+The select backend can operate in two modes. One uses the system-provided
+fd_set and is usually limited to 1024 file descriptors (64 on windows),
+the other requires your header files to define NFDBITS and declare a
+suitable fd_mask type. If you run into problems compiling ev_select.c, you
+can try forcing the use of the system fd_set here.
+
+EOF
+
+   if (prompt ("Force use of system fd_set for select backend (y/n)?", "n") =~ /[yY]/) {
+      $DEFINE .= " -DEV_SELECT_USE_FD_SET";
+   } 
+} 
+
+print <<EOF;
+
+
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
+The second very portable backend is poll(2). It does not exist on windows
+and various versions of Mac OS X (and on the other versions it simply
+doesn't work), but works basically everywhere else. It is recommended to use
+the default here unless you run into compile problems in ev_poll.c.
+
+EOF
+
+if (prompt ("Enable poll backend (y/n)?", (-e "/usr/include/poll.h") ? "y" : "n") =~ /[yY]/) {
+   $DEFINE .= " -DEV_USE_POLL";
+} 
+
+print <<EOF;
+
+
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
 EV by default uses select, which makes it hard to write efficient servers,
 especially if the number of active conencitons is much lower than the open
 ones. GNU/Linux systems have a more scalable method called "epoll", which
@@ -91,12 +142,12 @@ print <<EOF;
 
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
-Similarly to the epoll backend above, EV can take advantage of kqueue on
-many BSD systems (it seems to be broken on Mac OS X though). The kqueue
-backend has not been tested, however, so it is disabled by default. Please
-test (and preferably fix) the kqueue backend when you have a machine
-supporting it.  Support for kqueue will be detected at runtime, with a
-safe fallback to other methods when it cannot be used.
+Similarly to the epoll backend above, EV can take advantage of kqueue
+on many BSD systems (it seems to be broken on Mac OS X though, but what
+isn't broken on that shoddy platform... ah yes, the cash gushing by apple,
+selling defective software works perfectly there). Support for kqueue will
+be detected at runtime, with a safe fallback to other methods when it
+cannot be used.
 
 EOF
 

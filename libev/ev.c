@@ -28,27 +28,36 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef EV_STANDALONE
 # include "config.h"
 
 # if HAVE_CLOCK_GETTIME
-#  define EV_USE_MONOTONIC 1
-#  define EV_USE_REALTIME  1
+#  ifndef EV_USE_MONOTONIC
+#   define EV_USE_MONOTONIC 1
+#  endif
+#  ifndef EV_USE_REALTIME
+#   define EV_USE_REALTIME  1
+#  endif
 # endif
 
-# if HAVE_SELECT && HAVE_SYS_SELECT_H
+# if HAVE_SELECT && HAVE_SYS_SELECT_H && !defined (EV_USE_SELECT)
 #  define EV_USE_SELECT 1
 # endif
 
-# if HAVE_POLL && HAVE_POLL_H
+# if HAVE_POLL && HAVE_POLL_H && !defined (EV_USE_POLL)
 #  define EV_USE_POLL 1
 # endif
 
-# if HAVE_EPOLL && HAVE_EPOLL_CTL && HAVE_SYS_EPOLL_H
+# if HAVE_EPOLL_CTL && HAVE_SYS_EPOLL_H && !defined (EV_USE_EPOLL)
 #  define EV_USE_EPOLL 1
 # endif
 
-# if HAVE_KQUEUE && HAVE_WORKING_KQUEUE && HAVE_SYS_EVENT_H && HAVE_SYS_QUEUE_H
+# if HAVE_KQUEUE && HAVE_SYS_EVENT_H && HAVE_SYS_QUEUE_H && !defined (EV_USE_KQUEUE)
 #  define EV_USE_KQUEUE 1
 # endif
 
@@ -68,11 +77,18 @@
 
 #include <signal.h>
 
-#ifndef WIN32
+#ifndef _WIN32
 # include <unistd.h>
 # include <sys/time.h>
 # include <sys/wait.h>
+#else
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
+# ifndef EV_SELECT_IS_WINSOCKET
+#  define EV_SELECT_IS_WINSOCKET 1
+# endif
 #endif
+
 /**/
 
 #ifndef EV_USE_MONOTONIC
@@ -81,10 +97,15 @@
 
 #ifndef EV_USE_SELECT
 # define EV_USE_SELECT 1
+# define EV_SELECT_USE_FD_SET 1
 #endif
 
 #ifndef EV_USE_POLL
-# define EV_USE_POLL 0 /* poll is usually slower than select, and not as well tested */
+# ifdef _WIN32
+#  define EV_USE_POLL 0
+# else
+#  define EV_USE_POLL 1
+# endif
 #endif
 
 #ifndef EV_USE_EPOLL
@@ -95,21 +116,17 @@
 # define EV_USE_KQUEUE 0
 #endif
 
-#ifndef EV_USE_WIN32
-# ifdef WIN32
-#  define EV_USE_WIN32 0 /* it does not exist, use select */
-#  undef EV_USE_SELECT
-#  define EV_USE_SELECT 1
-# else
-#  define EV_USE_WIN32 0
-# endif
-#endif
-
 #ifndef EV_USE_REALTIME
 # define EV_USE_REALTIME 1
 #endif
 
 /**/
+
+/* darwin simply cannot be helped */
+#ifdef __APPLE__
+# undef EV_USE_POLL
+# undef EV_USE_KQUEUE
+#endif
 
 #ifndef CLOCK_MONOTONIC
 # undef EV_USE_MONOTONIC
@@ -119,6 +136,10 @@
 #ifndef CLOCK_REALTIME
 # undef EV_USE_REALTIME
 # define EV_USE_REALTIME 0
+#endif
+
+#if EV_SELECT_IS_WINSOCKET
+# include <winsock.h>
 #endif
 
 /**/
@@ -148,13 +169,17 @@
 #define NUMPRI    (EV_MAXPRI - EV_MINPRI + 1)
 #define ABSPRI(w) ((w)->priority - EV_MINPRI)
 
+#define EMPTY /* required for microsofts broken pseudo-c compiler */
+
 typedef struct ev_watcher *W;
 typedef struct ev_watcher_list *WL;
 typedef struct ev_watcher_time *WT;
 
 static int have_monotonic; /* did clock_gettime (CLOCK_MONOTONIC) work? */
 
-#include "ev_win32.c"
+#ifdef _WIN32
+# include "ev_win32.c"
+#endif
 
 /*****************************************************************************/
 
@@ -211,6 +236,9 @@ typedef struct
   WL head;
   unsigned char events;
   unsigned char reify;
+#if EV_SELECT_IS_WINSOCKET
+  SOCKET handle;
+#endif
 } ANFD;
 
 typedef struct
@@ -223,6 +251,8 @@ typedef struct
 
   struct ev_loop
   {
+    ev_tstamp ev_rt_now;
+    #define ev_rt_now ((loop)->ev_rt_now)
     #define VAR(name,decl) decl;
       #include "ev_vars.h"
     #undef VAR
@@ -234,6 +264,7 @@ typedef struct
 
 #else
 
+  ev_tstamp ev_rt_now;
   #define VAR(name,decl) static decl;
     #include "ev_vars.h"
   #undef VAR
@@ -244,7 +275,7 @@ typedef struct
 
 /*****************************************************************************/
 
-inline ev_tstamp
+ev_tstamp
 ev_time (void)
 {
 #if EV_USE_REALTIME
@@ -273,11 +304,13 @@ get_clock (void)
   return ev_time ();
 }
 
+#if EV_MULTIPLICITY
 ev_tstamp
 ev_now (EV_P)
 {
-  return rt_now;
+  return ev_rt_now;
 }
+#endif
 
 #define array_roundsize(type,n) ((n) | 4 & ~3)
 
@@ -303,11 +336,6 @@ ev_now (EV_P)
       base = (type *)ev_realloc (base, sizeof (type) * (stem ## max));\
       fprintf (stderr, "slimmed down " # stem " to %d\n", stem ## max);/*D*/\
     }
-
-/* microsoft's pseudo-c is quite far from C as the rest of the world and the standard knows it */
-/* bringing us everlasting joy in form of stupid extra macros that are not required in C */
-#define array_free_microshit(stem) \
-  ev_free (stem ## s); stem ## cnt = stem ## max = 0;
 
 #define array_free(stem, idx) \
   ev_free (stem ## s idx); stem ## cnt idx = stem ## max idx = 0;
@@ -392,6 +420,15 @@ fd_reify (EV_P)
       for (w = (struct ev_io *)anfd->head; w; w = (struct ev_io *)((WL)w)->next)
         events |= w->events;
 
+#if EV_SELECT_IS_WINSOCKET
+      if (events)
+        {
+          unsigned long argp;
+          anfd->handle = _get_osfhandle (fd);
+          assert (("libev only supports socket fds in this configuration", ioctlsocket (anfd->handle, FIONREAD, &argp) == 0));
+        }
+#endif
+
       anfd->reify = 0;
 
       method_modify (EV_A_ fd, anfd->events, events);
@@ -429,8 +466,8 @@ fd_kill (EV_P_ int fd)
 static int
 fd_valid (int fd)
 {
-#ifdef WIN32
-  return !!win32_get_osfhandle (fd);
+#ifdef _WIN32
+  return _get_osfhandle (fd) != -1;
 #else
   return fcntl (fd, F_GETFD) != -1;
 #endif
@@ -520,6 +557,13 @@ downheap (WT *heap, int N, int k)
   ((W)heap [k])->active = k + 1;
 }
 
+inline void
+adjustheap (WT *heap, int N, int k)
+{
+  upheap (heap, k);
+  downheap (heap, N, k);
+}
+
 /*****************************************************************************/
 
 typedef struct
@@ -550,7 +594,7 @@ signals_init (ANSIG *base, int count)
 static void
 sighandler (int signum)
 {
-#if WIN32
+#if _WIN32
   signal (signum, sighandler);
 #endif
 
@@ -560,11 +604,7 @@ sighandler (int signum)
     {
       int old_errno = errno;
       gotsig = 1;
-#ifdef WIN32
-      send (sigpipe [1], &signum, 1, MSG_DONTWAIT);
-#else
       write (sigpipe [1], &signum, 1);
-#endif
       errno = old_errno;
     }
 }
@@ -594,11 +634,7 @@ sigcb (EV_P_ struct ev_io *iow, int revents)
 {
   int signum;
 
-#ifdef WIN32
-  recv (sigpipe [0], &revents, 1, MSG_DONTWAIT);
-#else
   read (sigpipe [0], &revents, 1);
-#endif
   gotsig = 0;
 
   for (signum = signalmax; signum--; )
@@ -606,17 +642,23 @@ sigcb (EV_P_ struct ev_io *iow, int revents)
       ev_feed_signal_event (EV_A_ signum + 1);
 }
 
+inline void
+fd_intern (int fd)
+{
+#ifdef _WIN32
+  int arg = 1;
+  ioctlsocket (_get_osfhandle (fd), FIONBIO, &arg);
+#else
+  fcntl (fd, F_SETFD, FD_CLOEXEC);
+  fcntl (fd, F_SETFL, O_NONBLOCK);
+#endif
+}
+
 static void
 siginit (EV_P)
 {
-#ifndef WIN32
-  fcntl (sigpipe [0], F_SETFD, FD_CLOEXEC);
-  fcntl (sigpipe [1], F_SETFD, FD_CLOEXEC);
-
-  /* rather than sort out wether we really need nb, set it */
-  fcntl (sigpipe [0], F_SETFL, O_NONBLOCK);
-  fcntl (sigpipe [1], F_SETFL, O_NONBLOCK);
-#endif
+  fd_intern (sigpipe [0]);
+  fd_intern (sigpipe [1]);
 
   ev_io_set (&sigev, sigpipe [0], EV_READ);
   ev_io_start (EV_A_ &sigev);
@@ -627,7 +669,7 @@ siginit (EV_P)
 
 static struct ev_child *childs [PID_HASHSIZE];
 
-#ifndef WIN32
+#ifndef _WIN32
 
 static struct ev_signal childev;
 
@@ -698,7 +740,7 @@ ev_version_minor (void)
 static int
 enable_secure (void)
 {
-#ifdef WIN32
+#ifdef _WIN32
   return 0;
 #else
   return getuid () != geteuid ()
@@ -725,10 +767,10 @@ loop_init (EV_P_ int methods)
       }
 #endif
 
-      rt_now    = ev_time ();
+      ev_rt_now = ev_time ();
       mn_now    = get_clock ();
       now_floor = mn_now;
-      rtmn_diff = rt_now - mn_now;
+      rtmn_diff = ev_rt_now - mn_now;
 
       if (methods == EVMETHOD_AUTO)
         if (!enable_secure () && getenv ("LIBEV_METHODS"))
@@ -737,9 +779,6 @@ loop_init (EV_P_ int methods)
           methods = EVMETHOD_ANY;
 
       method = 0;
-#if EV_USE_WIN32
-      if (!method && (methods & EVMETHOD_WIN32 )) method = win32_init  (EV_A_ methods);
-#endif
 #if EV_USE_KQUEUE
       if (!method && (methods & EVMETHOD_KQUEUE)) method = kqueue_init (EV_A_ methods);
 #endif
@@ -753,7 +792,7 @@ loop_init (EV_P_ int methods)
       if (!method && (methods & EVMETHOD_SELECT)) method = select_init (EV_A_ methods);
 #endif
 
-      ev_watcher_init (&sigev, sigcb);
+      ev_init (&sigev, sigcb);
       ev_set_priority (&sigev, EV_MAXPRI);
     }
 }
@@ -763,9 +802,6 @@ loop_destroy (EV_P)
 {
   int i;
 
-#if EV_USE_WIN32
-  if (method == EVMETHOD_WIN32 ) win32_destroy  (EV_A);
-#endif
 #if EV_USE_KQUEUE
   if (method == EVMETHOD_KQUEUE) kqueue_destroy (EV_A);
 #endif
@@ -783,12 +819,14 @@ loop_destroy (EV_P)
     array_free (pending, [i]);
 
   /* have to use the microsoft-never-gets-it-right macro */
-  array_free_microshit (fdchange);
-  array_free_microshit (timer);
-  array_free_microshit (periodic);
-  array_free_microshit (idle);
-  array_free_microshit (prepare);
-  array_free_microshit (check);
+  array_free (fdchange, EMPTY);
+  array_free (timer, EMPTY);
+#if EV_PERIODICS
+  array_free (periodic, EMPTY);
+#endif
+  array_free (idle, EMPTY);
+  array_free (prepare, EMPTY);
+  array_free (check, EMPTY);
 
   method = 0;
 }
@@ -877,7 +915,7 @@ ev_default_loop (int methods)
         {
           siginit (EV_A);
 
-#ifndef WIN32
+#ifndef _WIN32
           ev_signal_init (&childev, childcb, SIGCHLD);
           ev_set_priority (&childev, EV_MAXPRI);
           ev_signal_start (EV_A_ &childev);
@@ -898,7 +936,7 @@ ev_default_destroy (void)
   struct ev_loop *loop = default_loop;
 #endif
 
-#ifndef WIN32
+#ifndef _WIN32
   ev_ref (EV_A); /* child watcher */
   ev_signal_stop (EV_A_ &childev);
 #endif
@@ -950,7 +988,7 @@ call_pending (EV_P)
         if (p->w)
           {
             p->w->pending = 0;
-            p->w->cb (EV_A_ p->w, p->events);
+            EV_CB_INVOKE (p->w, p->events);
           }
       }
 }
@@ -968,7 +1006,11 @@ timers_reify (EV_P)
       if (w->repeat)
         {
           assert (("negative ev_timer repeat value found while processing timers", w->repeat > 0.));
-          ((WT)w)->at = mn_now + w->repeat;
+
+          ((WT)w)->at += w->repeat;
+          if (((WT)w)->at < mn_now)
+            ((WT)w)->at = mn_now;
+
           downheap ((WT *)timers, timercnt, 0);
         }
       else
@@ -978,10 +1020,11 @@ timers_reify (EV_P)
     }
 }
 
+#if EV_PERIODICS
 static void
 periodics_reify (EV_P)
 {
-  while (periodiccnt && ((WT)periodics [0])->at <= rt_now)
+  while (periodiccnt && ((WT)periodics [0])->at <= ev_rt_now)
     {
       struct ev_periodic *w = periodics [0];
 
@@ -990,15 +1033,15 @@ periodics_reify (EV_P)
       /* first reschedule or stop timer */
       if (w->reschedule_cb)
         {
-          ev_tstamp at = ((WT)w)->at = w->reschedule_cb (w, rt_now + 0.0001);
+          ev_tstamp at = ((WT)w)->at = w->reschedule_cb (w, ev_rt_now + 0.0001);
 
-          assert (("ev_periodic reschedule callback returned time in the past", ((WT)w)->at > rt_now));
+          assert (("ev_periodic reschedule callback returned time in the past", ((WT)w)->at > ev_rt_now));
           downheap ((WT *)periodics, periodiccnt, 0);
         }
       else if (w->interval)
         {
-          ((WT)w)->at += floor ((rt_now - ((WT)w)->at) / w->interval + 1.) * w->interval;
-          assert (("ev_periodic timeout in the past detected while processing timers, negative interval?", ((WT)w)->at > rt_now));
+          ((WT)w)->at += floor ((ev_rt_now - ((WT)w)->at) / w->interval + 1.) * w->interval;
+          assert (("ev_periodic timeout in the past detected while processing timers, negative interval?", ((WT)w)->at > ev_rt_now));
           downheap ((WT *)periodics, periodiccnt, 0);
         }
       else
@@ -1019,15 +1062,16 @@ periodics_reschedule (EV_P)
       struct ev_periodic *w = periodics [i];
 
       if (w->reschedule_cb)
-        ((WT)w)->at = w->reschedule_cb (w, rt_now);
+        ((WT)w)->at = w->reschedule_cb (w, ev_rt_now);
       else if (w->interval)
-        ((WT)w)->at += ceil ((rt_now - ((WT)w)->at) / w->interval) * w->interval;
+        ((WT)w)->at += ceil ((ev_rt_now - ((WT)w)->at) / w->interval) * w->interval;
     }
 
   /* now rebuild the heap */
   for (i = periodiccnt >> 1; i--; )
     downheap ((WT *)periodics, periodiccnt, i);
 }
+#endif
 
 inline int
 time_update_monotonic (EV_P)
@@ -1036,13 +1080,13 @@ time_update_monotonic (EV_P)
 
   if (expect_true (mn_now - now_floor < MIN_TIMEJUMP * .5))
     {
-      rt_now = rtmn_diff + mn_now;
+      ev_rt_now = rtmn_diff + mn_now;
       return 0;
     }
   else
     {
       now_floor = mn_now;
-      rt_now = ev_time ();
+      ev_rt_now = ev_time ();
       return 1;
     }
 }
@@ -1061,17 +1105,19 @@ time_update (EV_P)
 
           for (i = 4; --i; ) /* loop a few times, before making important decisions */
             {
-              rtmn_diff = rt_now - mn_now;
+              rtmn_diff = ev_rt_now - mn_now;
 
               if (fabs (odiff - rtmn_diff) < MIN_TIMEJUMP)
                 return; /* all is well */
 
-              rt_now    = ev_time ();
+              ev_rt_now = ev_time ();
               mn_now    = get_clock ();
               now_floor = mn_now;
             }
 
+# if EV_PERIODICS
           periodics_reschedule (EV_A);
+# endif
           /* no timer adjustment, as the monotonic clock doesn't jump */
           /* timers_reschedule (EV_A_ rtmn_diff - odiff) */
         }
@@ -1079,18 +1125,20 @@ time_update (EV_P)
   else
 #endif
     {
-      rt_now = ev_time ();
+      ev_rt_now = ev_time ();
 
-      if (expect_false (mn_now > rt_now || mn_now < rt_now - MAX_BLOCKTIME - MIN_TIMEJUMP))
+      if (expect_false (mn_now > ev_rt_now || mn_now < ev_rt_now - MAX_BLOCKTIME - MIN_TIMEJUMP))
         {
+#if EV_PERIODICS
           periodics_reschedule (EV_A);
+#endif
 
           /* adjust timers. this is easy, as the offset is the same for all */
           for (i = 0; i < timercnt; ++i)
-            ((WT)timers [i])->at += rt_now - mn_now;
+            ((WT)timers [i])->at += ev_rt_now - mn_now;
         }
 
-      mn_now = rt_now;
+      mn_now = ev_rt_now;
     }
 }
 
@@ -1140,8 +1188,8 @@ ev_loop (EV_P_ int flags)
       else
 #endif
         {
-          rt_now = ev_time ();
-          mn_now = rt_now;
+          ev_rt_now = ev_time ();
+          mn_now    = ev_rt_now;
         }
 
       if (flags & EVLOOP_NONBLOCK || idlecnt)
@@ -1156,23 +1204,27 @@ ev_loop (EV_P_ int flags)
               if (block > to) block = to;
             }
 
+#if EV_PERIODICS
           if (periodiccnt)
             {
-              ev_tstamp to = ((WT)periodics [0])->at - rt_now + method_fudge;
+              ev_tstamp to = ((WT)periodics [0])->at - ev_rt_now + method_fudge;
               if (block > to) block = to;
             }
+#endif
 
           if (block < 0.) block = 0.;
         }
 
       method_poll (EV_A_ block);
 
-      /* update rt_now, do magic */
+      /* update ev_rt_now, do magic */
       time_update (EV_A);
 
       /* queue pending timers and reschedule them */
       timers_reify (EV_A); /* relative timers called last */
+#if EV_PERIODICS
       periodics_reify (EV_A); /* absolute timers called first */
+#endif
 
       /* queue idle watchers unless io or timers are pending */
       if (idlecnt && !any_pending (EV_A))
@@ -1273,6 +1325,8 @@ ev_io_stop (EV_P_ struct ev_io *w)
   if (!ev_is_active (w))
     return;
 
+  assert (("ev_io_start called with illegal fd (must stay constant after start!)", w->fd >= 0 && w->fd < anfdmax));
+
   wlist_del ((WL *)&anfds[w->fd].head, (WL)w);
   ev_stop (EV_A_ (W)w);
 
@@ -1309,10 +1363,10 @@ ev_timer_stop (EV_P_ struct ev_timer *w)
   if (((W)w)->active < timercnt--)
     {
       timers [((W)w)->active - 1] = timers [timercnt];
-      downheap ((WT *)timers, timercnt, ((W)w)->active - 1);
+      adjustheap ((WT *)timers, timercnt, ((W)w)->active - 1);
     }
 
-  ((WT)w)->at = w->repeat;
+  ((WT)w)->at -= mn_now;
 
   ev_stop (EV_A_ (W)w);
 }
@@ -1325,7 +1379,7 @@ ev_timer_again (EV_P_ struct ev_timer *w)
       if (w->repeat)
         {
           ((WT)w)->at = mn_now + w->repeat;
-          downheap ((WT *)timers, timercnt, ((W)w)->active - 1);
+          adjustheap ((WT *)timers, timercnt, ((W)w)->active - 1);
         }
       else
         ev_timer_stop (EV_A_ w);
@@ -1334,6 +1388,7 @@ ev_timer_again (EV_P_ struct ev_timer *w)
     ev_timer_start (EV_A_ w);
 }
 
+#if EV_PERIODICS
 void
 ev_periodic_start (EV_P_ struct ev_periodic *w)
 {
@@ -1341,12 +1396,12 @@ ev_periodic_start (EV_P_ struct ev_periodic *w)
     return;
 
   if (w->reschedule_cb)
-    ((WT)w)->at = w->reschedule_cb (w, rt_now);
+    ((WT)w)->at = w->reschedule_cb (w, ev_rt_now);
   else if (w->interval)
     {
       assert (("ev_periodic_start called with negative interval value", w->interval >= 0.));
       /* this formula differs from the one in periodic_reify because we do not always round up */
-      ((WT)w)->at += ceil ((rt_now - ((WT)w)->at) / w->interval) * w->interval;
+      ((WT)w)->at += ceil ((ev_rt_now - ((WT)w)->at) / w->interval) * w->interval;
     }
 
   ev_start (EV_A_ (W)w, ++periodiccnt);
@@ -1369,7 +1424,7 @@ ev_periodic_stop (EV_P_ struct ev_periodic *w)
   if (((W)w)->active < periodiccnt--)
     {
       periodics [((W)w)->active - 1] = periodics [periodiccnt];
-      downheap ((WT *)periodics, periodiccnt, ((W)w)->active - 1);
+      adjustheap ((WT *)periodics, periodiccnt, ((W)w)->active - 1);
     }
 
   ev_stop (EV_A_ (W)w);
@@ -1378,9 +1433,11 @@ ev_periodic_stop (EV_P_ struct ev_periodic *w)
 void
 ev_periodic_again (EV_P_ struct ev_periodic *w)
 {
+  /* TODO: use adjustheap and recalculation */
   ev_periodic_stop (EV_A_ w);
   ev_periodic_start (EV_A_ w);
 }
+#endif
 
 void
 ev_idle_start (EV_P_ struct ev_idle *w)
@@ -1397,7 +1454,7 @@ void
 ev_idle_stop (EV_P_ struct ev_idle *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (ev_is_active (w))
+  if (!ev_is_active (w))
     return;
 
   idles [((W)w)->active - 1] = idles [--idlecnt];
@@ -1419,7 +1476,7 @@ void
 ev_prepare_stop (EV_P_ struct ev_prepare *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (ev_is_active (w))
+  if (!ev_is_active (w))
     return;
 
   prepares [((W)w)->active - 1] = prepares [--preparecnt];
@@ -1441,7 +1498,7 @@ void
 ev_check_stop (EV_P_ struct ev_check *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (ev_is_active (w))
+  if (!ev_is_active (w))
     return;
 
   checks [((W)w)->active - 1] = checks [--checkcnt];
@@ -1469,7 +1526,7 @@ ev_signal_start (EV_P_ struct ev_signal *w)
 
   if (!((WL)w)->next)
     {
-#if WIN32
+#if _WIN32
       signal (w->signum, sighandler);
 #else
       struct sigaction sa;
@@ -1512,7 +1569,7 @@ void
 ev_child_stop (EV_P_ struct ev_child *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (ev_is_active (w))
+  if (!ev_is_active (w))
     return;
 
   wlist_del ((WL *)&childs [w->pid & (PID_HASHSIZE - 1)], (WL)w);
@@ -1566,14 +1623,14 @@ ev_once (EV_P_ int fd, int events, ev_tstamp timeout, void (*cb)(int revents, vo
       once->cb  = cb;
       once->arg = arg;
 
-      ev_watcher_init (&once->io, once_cb_io);
+      ev_init (&once->io, once_cb_io);
       if (fd >= 0)
         {
           ev_io_set (&once->io, fd, events);
           ev_io_start (EV_A_ &once->io);
         }
 
-      ev_watcher_init (&once->to, once_cb_to);
+      ev_init (&once->to, once_cb_to);
       if (timeout >= 0.)
         {
           ev_timer_set (&once->to, timeout, 0.);
@@ -1581,4 +1638,8 @@ ev_once (EV_P_ int fd, int events, ev_tstamp timeout, void (*cb)(int revents, vo
         }
     }
 }
+
+#ifdef __cplusplus
+}
+#endif
 

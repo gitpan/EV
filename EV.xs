@@ -11,13 +11,17 @@
 #undef signal
 #undef sigaction
 
-#define EV_SELECT_USE_WIN32_HANDLES 0
-#define EV_SELECT_USE_FD_SET 0
+#define EV_SELECT_IS_WINSOCKET 0
+#ifdef _WIN32
+# define EV_SELECT_USE_FD_SET 0
+# define NFDBITS PERL_NFDBITS
+# define fd_mask Perl_fd_mask
+#endif
 /* due to bugs in OS X we have to use libev/ explicitly here */
 #include "libev/ev.c"
 #include "event.c"
 
-#ifndef WIN32
+#ifndef _WIN32
 #define DNS_USE_GETTIMEOFDAY_FOR_ID 1
 #if !defined (WIN32) && !defined(__CYGWIN__)
 # define HAVE_STRUCT_IN6_ADDR 1
@@ -29,7 +33,7 @@
 #include "evdns.c"
 #endif
 
-#ifndef WIN32
+#ifndef _WIN32
 # include <pthread.h>
 #endif
 
@@ -103,7 +107,7 @@ e_new (int size, SV *cb_sv)
 
   w = (struct ev_watcher *)SvPVX (self);
 
-  ev_watcher_init (w, e_cb);
+  ev_init (w, e_cb);
 
   w->data  = 0;
   w->fh    = 0;
@@ -230,7 +234,7 @@ e_periodic_cb (struct ev_periodic *w, ev_tstamp now)
 /////////////////////////////////////////////////////////////////////////////
 // DNS
 
-#ifndef WIN32
+#ifndef _WIN32
 static void
 dns_cb (int result, char type, int count, int ttl, void *addresses, void *arg)
 {
@@ -378,7 +382,7 @@ BOOT:
     sv_setiv (sv, (IV)&evapi);
     SvREADONLY_on (sv);
   }
-#ifndef WIN32
+#ifndef _WIN32
   pthread_atfork (0, 0, ev_default_fork);
 #endif
 }
@@ -799,7 +803,7 @@ int rstatus (struct ev_child *w)
 	OUTPUT:
         RETVAL
 
-#ifndef WIN32
+#ifndef _WIN32
 
 MODULE = EV		PACKAGE = EV::DNS	PREFIX = evdns_
 
@@ -880,7 +884,7 @@ int evdns_set_option (char *option, char *val, int flags)
 
 int evdns_resolv_conf_parse (int flags, const char *filename)
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 
 int evdns_config_windows_nameservers ()
 

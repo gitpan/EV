@@ -12,8 +12,8 @@ EV - perl interface to libev, a high performance full-featured event loop
      warn "is called after 2s";
   };
   
-  my $w = EV::timer 2, 1, sub {
-     warn "is called roughly every 2s (repeat = 1)";
+  my $w = EV::timer 2, 2, sub {
+     warn "is called roughly every 2s (repeat = 2)";
   };
   
   undef $w; # destroy event watcher again
@@ -25,7 +25,7 @@ EV - perl interface to libev, a high performance full-featured event loop
   # IO
   
   my $w = EV::io *STDIN, EV::READ, sub {
-     my ($w, $revents) = @_; # all callbacks get the watcher object and event mask
+     my ($w, $revents) = @_; # all callbacks receive the watcher and event mask
      warn "stdin is readable, you entered: ", <STDIN>;
   };
   
@@ -35,20 +35,15 @@ EV - perl interface to libev, a high performance full-featured event loop
      warn "sigquit received\n";
   };
   
-  my $w = EV::signal 3, sub {
-     warn "sigquit received (this is GNU/Linux, right?)\n";
-  };
-
   # CHILD/PID STATUS CHANGES
 
   my $w = EV::child 666, sub {
      my ($w, $revents) = @_;
-     # my $pid = $w->rpid;
      my $status = $w->rstatus;
   };
   
   # MAINLOOP
-  EV::loop;                   # loop until EV::loop_done is called
+  EV::loop;           # loop until EV::loop_done is called or all watchers stop
   EV::loop EV::LOOP_ONESHOT;  # block until at least one event could be handled
   EV::loop EV::LOOP_NONBLOCK; # try to handle same events, but do not block
 
@@ -64,7 +59,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.7';
+   our $VERSION = '0.8';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }

@@ -2,7 +2,6 @@
 
 VARx(ev_tstamp, now_floor) /* last time we refreshed rt_time */
 VARx(ev_tstamp, mn_now)    /* monotonic clock "now" */
-VARx(ev_tstamp, rt_now)
 VARx(ev_tstamp, rtmn_diff)      /* difference realtime - monotonic time */
 VARx(int, method)
 
@@ -14,10 +13,10 @@ VARx(int, postfork)  /* true if we need to recreate kernel state after fork */
 VARx(int, activecnt) /* number of active events */
 
 #if EV_USE_SELECT || EV_GENWRAP
-VARx(unsigned char *, vec_ri)
-VARx(unsigned char *, vec_ro)
-VARx(unsigned char *, vec_wi)
-VARx(unsigned char *, vec_wo)
+VARx(void *, vec_ri)
+VARx(void *, vec_ro)
+VARx(void *, vec_wi)
+VARx(void *, vec_wo)
 VARx(int, vec_max)
 #endif
 
@@ -60,9 +59,11 @@ VARx(struct ev_timer **, timers)
 VARx(int, timermax)
 VARx(int, timercnt)
 
+#if EV_PERIODICS || EV_GENWRAP
 VARx(struct ev_periodic **, periodics)
 VARx(int, periodicmax)
 VARx(int, periodiccnt)
+#endif
 
 VARx(struct ev_idle **, idles)
 VARx(int, idlemax)
