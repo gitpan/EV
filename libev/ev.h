@@ -203,7 +203,7 @@ struct ev_check
   EV_WATCHER (ev_check)
 };
 
-/* invoked when sigchld is received and waitpid indicates the givne pid */
+/* invoked when sigchld is received and waitpid indicates the given pid */
 /* revent EV_CHILD */
 /* does not support priorities */
 struct ev_child
@@ -231,15 +231,20 @@ union ev_any_watcher
   struct ev_child child;
 };
 
-#define EVMETHOD_AUTO     0 /* consults environment */
-#define EVMETHOD_SELECT   1
-#define EVMETHOD_POLL     2
-#define EVMETHOD_EPOLL    4
-#define EVMETHOD_KQUEUE   8
-#define EVMETHOD_DEVPOLL 16 /* NYI */
-#define EVMETHOD_PORT    32 /* NYI */
-#define EVMETHOD_WIN32   64 /* NYI */
-#define EVMETHOD_ANY     ~0 /* any method, do not consult env */
+/* bits for ev_default_loop and ev_loop_new */
+/* the default */
+#define EVFLAG_AUTO      0x00000000 /* not quite a mask */
+
+/* method bits to be ored together */
+#define EVMETHOD_SELECT  0x00000001 /* about anywhere */
+#define EVMETHOD_POLL    0x00000002 /* !win */
+#define EVMETHOD_EPOLL   0x00000004 /* linux */
+#define EVMETHOD_KQUEUE  0x00000008 /* bsd */
+#define EVMETHOD_DEVPOLL 0x00000010 /* solaris 8 */ /* NYI */
+#define EVMETHOD_PORT    0x00000020 /* solaris 10 */ /* NYI */
+
+/* flag bits */
+#define EVFLAG_NOENV     0x01000000 /* do NOT consult environment */
 
 #if EV_PROTOTYPES
 int ev_version_major (void);
@@ -264,10 +269,10 @@ void ev_set_syserr_cb (void (*cb)(const char *msg));
 # if EV_MULTIPLICITY
 /* the default loop is the only one that handles signals and child watchers */
 /* you can call this as often as you like */
-struct ev_loop *ev_default_loop (int methods); /* returns default loop */
+struct ev_loop *ev_default_loop (unsigned int flags); /* returns default loop */
 
 /* create and destroy alternative loops that don't handle signals */
-struct ev_loop *ev_loop_new (int methods);
+struct ev_loop *ev_loop_new (unsigned int flags);
 void ev_loop_destroy (EV_P);
 void ev_loop_fork (EV_P);
 
@@ -275,7 +280,7 @@ ev_tstamp ev_now (EV_P); /* time w.r.t. timers and the eventloop, updated after 
 
 # else
 
-int ev_default_loop (int methods); /* returns true when successful */
+int ev_default_loop (unsigned int flags); /* returns true when successful */
 
 static ev_tstamp
 ev_now (void)
@@ -293,12 +298,12 @@ void ev_default_destroy (void); /* destroy the default loop */
 /* you can actually call it at any time, anywhere :) */
 void ev_default_fork (void);
 
-int ev_method (EV_P);
+unsigned int ev_method (EV_P);
 #endif
 
 #define EVLOOP_NONBLOCK	1 /* do not block/wait */
 #define EVLOOP_ONESHOT	2 /* block *once* only */
-#define EVUNLOOP_ONCE   1 /* unloop once */
+#define EVUNLOOP_ONE    1 /* unloop once */
 #define EVUNLOOP_ALL    2 /* unloop all loops */
 
 #if EV_PROTOTYPES

@@ -39,7 +39,7 @@ struct EVAPI {
   /* same as libev functions */
   ev_tstamp (*now)(void);
   ev_tstamp (*(time))(void);
-  int (*method)(void);
+  unsigned int (*method)(void);
   void (*loop)(int flags);
   void (*unloop)(int how);
   void (*once)(int fd, int events, ev_tstamp timeout, void (*cb)(int revents, void *arg), void *arg);

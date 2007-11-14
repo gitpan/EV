@@ -43,7 +43,7 @@ EV - perl interface to libev, a high performance full-featured event loop
   };
   
   # MAINLOOP
-  EV::loop;           # loop until EV::loop_done is called or all watchers stop
+  EV::loop;           # loop until EV::unloop is called or all watchers stop
   EV::loop EV::LOOP_ONESHOT;  # block until at least one event could be handled
   EV::loop EV::LOOP_NONBLOCK; # try to handle same events, but do not block
 
@@ -59,7 +59,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.8';
+   our $VERSION = '0.9';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -103,7 +103,7 @@ or EV::METHOD_EPOLL).
 =item EV::loop [$flags]
 
 Begin checking for events and calling callbacks. It returns when a
-callback calls EV::loop_done.
+callback calls EV::unloop.
 
 The $flags argument can be one of the following:
 
@@ -111,12 +111,12 @@ The $flags argument can be one of the following:
    EV::LOOP_ONESHOT   block at most once (wait, but do not loop)
    EV::LOOP_NONBLOCK  do not block at all (fetch/handle events but do not wait)
 
-=item EV::loop_done [$how]
+=item EV::unloop [$how]
 
-When called with no arguments or an argument of 1, makes the innermost
-call to EV::loop return.
+When called with no arguments or an argument of EV::UNLOOP_ONE, makes the
+innermost call to EV::loop return.
 
-When called with an agrument of 2, all calls to EV::loop will return as
+When called with an argument of EV::UNLOOP_ALL, all calls to EV::loop will return as
 fast as possible.
 
 =back
@@ -260,11 +260,12 @@ the timer will be restarted (with the $repeat value as $after) after the
 callback returns.
 
 This means that the callback would be called roughly after C<$after>
-seconds, and then every C<$repeat> seconds. "Roughly" because the time of
-callback processing is not taken into account, so the timer will slowly
-drift. If that isn't acceptable, look at EV::periodic.
+seconds, and then every C<$repeat> seconds. The timer does his best not
+to drift, but it will not invoke the timer more often then once per event
+loop iteration, and might drift in other cases. If that isn't acceptable,
+look at EV::periodic, which can provide long-term stable timers.
 
-The timer is based on a monotonic clock, that is if somebody is sitting
+The timer is based on a monotonic clock, that is, if somebody is sitting
 in front of the machine while the timer is running and changes the system
 clock, the timer will nevertheless run (roughly) the same time.
 
@@ -279,12 +280,12 @@ any time.
 
 Similar to the C<start> method, but has special semantics for repeating timers:
 
+If the timer is active and non-repeating, it will be stopped.
+
 If the timer is active and repeating, reset the timeout to occur
 C<$repeat> seconds after now.
 
-If the timer is active and non-repeating, it will be stopped.
-
-If the timer is in active and repeating, start it.
+If the timer is inactive and repeating, start it using the repeat value.
 
 Otherwise do nothing.
 
@@ -338,10 +339,10 @@ jumps.
 
 =item * manual reschedule mode ($reschedule_cb = coderef)
 
-In this mode $interval and $at are both being ignored. Instead, each time
-the periodic watcher gets scheduled, the first callback ($reschedule_cb)
-will be called with the watcher as first, and the current time as second
-argument.
+In this mode $interval and $at are both being ignored. Instead, each
+time the periodic watcher gets scheduled, the reschedule callback
+($reschedule_cb) will be called with the watcher as first, and the current
+time as second argument.
 
 I<This callback MUST NOT stop or destroy this or any other periodic
 watcher, ever>. If you need to stop it, return 1e30 and stop it

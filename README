@@ -42,7 +42,7 @@ SYNOPSIS
       };
   
       # MAINLOOP
-      EV::loop;           # loop until EV::loop_done is called or all watchers stop
+      EV::loop;           # loop until EV::unloop is called or all watchers stop
       EV::loop EV::LOOP_ONESHOT;  # block until at least one event could be handled
       EV::loop EV::LOOP_NONBLOCK; # try to handle same events, but do not block
 
@@ -72,7 +72,7 @@ BASIC INTERFACE
 
     EV::loop [$flags]
         Begin checking for events and calling callbacks. It returns when a
-        callback calls EV::loop_done.
+        callback calls EV::unloop.
 
         The $flags argument can be one of the following:
 
@@ -80,12 +80,12 @@ BASIC INTERFACE
            EV::LOOP_ONESHOT   block at most once (wait, but do not loop)
            EV::LOOP_NONBLOCK  do not block at all (fetch/handle events but do not wait)
 
-    EV::loop_done [$how]
-        When called with no arguments or an argument of 1, makes the
-        innermost call to EV::loop return.
+    EV::unloop [$how]
+        When called with no arguments or an argument of EV::UNLOOP_ONE,
+        makes the innermost call to EV::loop return.
 
-        When called with an agrument of 2, all calls to EV::loop will return
-        as fast as possible.
+        When called with an argument of EV::UNLOOP_ALL, all calls to
+        EV::loop will return as fast as possible.
 
   WATCHER
     A watcher is an object that gets created to record your interest in some
@@ -204,11 +204,13 @@ BASIC INTERFACE
         callback returns.
 
         This means that the callback would be called roughly after $after
-        seconds, and then every $repeat seconds. "Roughly" because the time
-        of callback processing is not taken into account, so the timer will
-        slowly drift. If that isn't acceptable, look at EV::periodic.
+        seconds, and then every $repeat seconds. The timer does his best not
+        to drift, but it will not invoke the timer more often then once per
+        event loop iteration, and might drift in other cases. If that isn't
+        acceptable, look at EV::periodic, which can provide long-term stable
+        timers.
 
-        The timer is based on a monotonic clock, that is if somebody is
+        The timer is based on a monotonic clock, that is, if somebody is
         sitting in front of the machine while the timer is running and
         changes the system clock, the timer will nevertheless run (roughly)
         the same time.
@@ -224,12 +226,13 @@ BASIC INTERFACE
         Similar to the "start" method, but has special semantics for
         repeating timers:
 
+        If the timer is active and non-repeating, it will be stopped.
+
         If the timer is active and repeating, reset the timeout to occur
         $repeat seconds after now.
 
-        If the timer is active and non-repeating, it will be stopped.
-
-        If the timer is in active and repeating, start it.
+        If the timer is inactive and repeating, start it using the repeat
+        value.
 
         Otherwise do nothing.
 
@@ -277,7 +280,7 @@ BASIC INTERFACE
 
         * manual reschedule mode ($reschedule_cb = coderef)
             In this mode $interval and $at are both being ignored. Instead,
-            each time the periodic watcher gets scheduled, the first
+            each time the periodic watcher gets scheduled, the reschedule
             callback ($reschedule_cb) will be called with the watcher as
             first, and the current time as second argument.
 

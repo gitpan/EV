@@ -91,13 +91,13 @@ void *event_init (void)
 {
 #if EV_MULTIPLICITY
   if (x_cur)
-    x_cur = (struct event_base *)ev_loop_new (EVMETHOD_AUTO);
+    x_cur = (struct event_base *)ev_loop_new (EVFLAG_AUTO);
   else
-    x_cur = (struct event_base *)ev_default_loop (EVMETHOD_AUTO);
+    x_cur = (struct event_base *)ev_default_loop (EVFLAG_AUTO);
 #else
   assert (("multiple event bases not supported when not compiled with EV_MULTIPLICITY", !x_cur));
 
-  x_cur = (struct event_base *)(long)ev_default_loop (EVMETHOD_AUTO);
+  x_cur = (struct event_base *)(long)ev_default_loop (EVFLAG_AUTO);
 #endif
 
   return x_cur;
@@ -108,7 +108,7 @@ void event_base_free (struct event_base *base)
   dLOOPbase;
 
 #if EV_MULTIPLICITY
-  if (ev_default_loop (EVMETHOD_AUTO) != loop)
+  if (ev_default_loop (EVFLAG_AUTO) != loop)
     ev_loop_destroy (loop);
 #endif
 }
@@ -209,31 +209,36 @@ int event_add (struct event *ev, struct timeval *tv)
 {
   dLOOPev;
 
-  /* disable all watchers */
-  event_del (ev);
-
   if (ev->ev_events & EV_SIGNAL)
     {
-      ev_signal_set (&ev->iosig.sig, ev->ev_fd);
-      ev_signal_start (EV_A_ &ev->iosig.sig);
+      if (!ev_is_active (&ev->iosig.sig))
+        {
+          ev_signal_set (&ev->iosig.sig, ev->ev_fd);
+          ev_signal_start (EV_A_ &ev->iosig.sig);
 
-      ev->ev_flags |= EVLIST_SIGNAL;
+          ev->ev_flags |= EVLIST_SIGNAL;
+        }
     }
   else if (ev->ev_events & (EV_READ | EV_WRITE))
     {
-      ev_io_set (&ev->iosig.io, ev->ev_fd, ev->ev_events & (EV_READ | EV_WRITE));
-      ev_io_start (EV_A_ &ev->iosig.io);
+      if (!ev_is_active (&ev->iosig.io))
+        {
+          ev_io_set (&ev->iosig.io, ev->ev_fd, ev->ev_events & (EV_READ | EV_WRITE));
+          ev_io_start (EV_A_ &ev->iosig.io);
 
-      ev->ev_flags |= EVLIST_INSERTED;
+          ev->ev_flags |= EVLIST_INSERTED;
+        }
     }
 
   if (tv)
     {
-      ev_timer_set (&ev->to, tv_get (tv), 0.);
-      ev_timer_start (EV_A_ &ev->to);
-
+      ev->to.repeat = tv_get (tv);
+      ev_timer_again (EV_A_ &ev->to);
       ev->ev_flags |= EVLIST_TIMEOUT;
     }
+  else
+    if (ev_is_active (&ev->to))
+      ev_timer_stop (EV_A_ &ev->to);
 
   ev->ev_flags |= EVLIST_ACTIVE;
 
@@ -347,7 +352,7 @@ x_loopexit_cb (int revents, void *base)
 {
   dLOOPbase;
 
-  ev_unloop (EV_A_ EVUNLOOP_ONCE);
+  ev_unloop (EV_A_ EVUNLOOP_ONE);
 }
 
 int event_base_loopexit (struct event_base *base, struct timeval *tv)

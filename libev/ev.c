@@ -169,7 +169,8 @@ extern "C" {
 #define NUMPRI    (EV_MAXPRI - EV_MINPRI + 1)
 #define ABSPRI(w) ((w)->priority - EV_MINPRI)
 
-#define EMPTY /* required for microsofts broken pseudo-c compiler */
+#define EMPTY0      /* required for microsofts broken pseudo-c compiler */
+#define EMPTY2(a,b) /* used to suppress some warnings */
 
 typedef struct ev_watcher *W;
 typedef struct ev_watcher_list *WL;
@@ -312,7 +313,7 @@ ev_now (EV_P)
 }
 #endif
 
-#define array_roundsize(type,n) ((n) | 4 & ~3)
+#define array_roundsize(type,n) (((n) | 4) & ~3)
 
 #define array_needsize(type,base,cur,cnt,init)			\
   if (expect_false ((cnt) > cur))				\
@@ -367,7 +368,7 @@ ev_feed_event (EV_P_ void *w, int revents)
     }
 
   w_->pending = ++pendingcnt [ABSPRI (w_)];
-  array_needsize (ANPENDING, pendings [ABSPRI (w_)], pendingmax [ABSPRI (w_)], pendingcnt [ABSPRI (w_)], (void));
+  array_needsize (ANPENDING, pendings [ABSPRI (w_)], pendingmax [ABSPRI (w_)], pendingcnt [ABSPRI (w_)], EMPTY2);
   pendings [ABSPRI (w_)][w_->pending - 1].w      = w_;
   pendings [ABSPRI (w_)][w_->pending - 1].events = revents;
 }
@@ -447,7 +448,7 @@ fd_change (EV_P_ int fd)
   anfds [fd].reify = 1;
 
   ++fdchangecnt;
-  array_needsize (int, fdchanges, fdchangemax, fdchangecnt, (void));
+  array_needsize (int, fdchanges, fdchangemax, fdchangecnt, EMPTY2);
   fdchanges [fdchangecnt - 1] = fd;
 }
 
@@ -748,14 +749,14 @@ enable_secure (void)
 #endif
 }
 
-int
+unsigned int
 ev_method (EV_P)
 {
   return method;
 }
 
 static void
-loop_init (EV_P_ int methods)
+loop_init (EV_P_ unsigned int flags)
 {
   if (!method)
     {
@@ -772,24 +773,24 @@ loop_init (EV_P_ int methods)
       now_floor = mn_now;
       rtmn_diff = ev_rt_now - mn_now;
 
-      if (methods == EVMETHOD_AUTO)
-        if (!enable_secure () && getenv ("LIBEV_METHODS"))
-          methods = atoi (getenv ("LIBEV_METHODS"));
-        else
-          methods = EVMETHOD_ANY;
+      if (!(flags & EVFLAG_NOENV) && !enable_secure () && getenv ("LIBEV_FLAGS"))
+        flags = atoi (getenv ("LIBEV_FLAGS"));
+
+      if (!(flags & 0x0000ffff))
+        flags |= 0x0000ffff;
 
       method = 0;
 #if EV_USE_KQUEUE
-      if (!method && (methods & EVMETHOD_KQUEUE)) method = kqueue_init (EV_A_ methods);
+      if (!method && (flags & EVMETHOD_KQUEUE)) method = kqueue_init (EV_A_ flags);
 #endif
 #if EV_USE_EPOLL
-      if (!method && (methods & EVMETHOD_EPOLL )) method = epoll_init  (EV_A_ methods);
+      if (!method && (flags & EVMETHOD_EPOLL )) method = epoll_init  (EV_A_ flags);
 #endif
 #if EV_USE_POLL
-      if (!method && (methods & EVMETHOD_POLL  )) method = poll_init   (EV_A_ methods);
+      if (!method && (flags & EVMETHOD_POLL  )) method = poll_init   (EV_A_ flags);
 #endif
 #if EV_USE_SELECT
-      if (!method && (methods & EVMETHOD_SELECT)) method = select_init (EV_A_ methods);
+      if (!method && (flags & EVMETHOD_SELECT)) method = select_init (EV_A_ flags);
 #endif
 
       ev_init (&sigev, sigcb);
@@ -819,14 +820,14 @@ loop_destroy (EV_P)
     array_free (pending, [i]);
 
   /* have to use the microsoft-never-gets-it-right macro */
-  array_free (fdchange, EMPTY);
-  array_free (timer, EMPTY);
+  array_free (fdchange, EMPTY0);
+  array_free (timer, EMPTY0);
 #if EV_PERIODICS
-  array_free (periodic, EMPTY);
+  array_free (periodic, EMPTY0);
 #endif
-  array_free (idle, EMPTY);
-  array_free (prepare, EMPTY);
-  array_free (check, EMPTY);
+  array_free (idle, EMPTY0);
+  array_free (prepare, EMPTY0);
+  array_free (check, EMPTY0);
 
   method = 0;
 }
@@ -861,13 +862,13 @@ loop_fork (EV_P)
 
 #if EV_MULTIPLICITY
 struct ev_loop *
-ev_loop_new (int methods)
+ev_loop_new (unsigned int flags)
 {
   struct ev_loop *loop = (struct ev_loop *)ev_malloc (sizeof (struct ev_loop));
 
   memset (loop, 0, sizeof (struct ev_loop));
 
-  loop_init (EV_A_ methods);
+  loop_init (EV_A_ flags);
 
   if (ev_method (EV_A))
     return loop;
@@ -895,7 +896,7 @@ struct ev_loop *
 #else
 int
 #endif
-ev_default_loop (int methods)
+ev_default_loop (unsigned int flags)
 {
   if (sigpipe [0] == sigpipe [1])
     if (pipe (sigpipe))
@@ -909,7 +910,7 @@ ev_default_loop (int methods)
       default_loop = 1;
 #endif
 
-      loop_init (EV_A_ methods);
+      loop_init (EV_A_ flags);
 
       if (ev_method (EV_A))
         {
@@ -1033,8 +1034,7 @@ periodics_reify (EV_P)
       /* first reschedule or stop timer */
       if (w->reschedule_cb)
         {
-          ev_tstamp at = ((WT)w)->at = w->reschedule_cb (w, ev_rt_now + 0.0001);
-
+          ((WT)w)->at = w->reschedule_cb (w, ev_rt_now + 0.0001);
           assert (("ev_periodic reschedule callback returned time in the past", ((WT)w)->at > ev_rt_now));
           downheap ((WT *)periodics, periodiccnt, 0);
         }
@@ -1162,7 +1162,7 @@ ev_loop (EV_P_ int flags)
   double block;
   loop_done = flags & (EVLOOP_ONESHOT | EVLOOP_NONBLOCK) ? 1 : 0;
 
-  do
+  while (activecnt)
     {
       /* queue check watchers (and execute them) */
       if (expect_false (preparecnt))
@@ -1235,8 +1235,10 @@ ev_loop (EV_P_ int flags)
         queue_events (EV_A_ (W *)checks, checkcnt, EV_CHECK);
 
       call_pending (EV_A);
+
+      if (loop_done)
+        break;
     }
-  while (activecnt && !loop_done);
 
   if (loop_done != 2)
     loop_done = 0;
@@ -1344,7 +1346,7 @@ ev_timer_start (EV_P_ struct ev_timer *w)
   assert (("ev_timer_start called with negative timer repeat value", w->repeat >= 0.));
 
   ev_start (EV_A_ (W)w, ++timercnt);
-  array_needsize (struct ev_timer *, timers, timermax, timercnt, (void));
+  array_needsize (struct ev_timer *, timers, timermax, timercnt, EMPTY2);
   timers [timercnt - 1] = w;
   upheap ((WT *)timers, timercnt - 1);
 
@@ -1385,7 +1387,10 @@ ev_timer_again (EV_P_ struct ev_timer *w)
         ev_timer_stop (EV_A_ w);
     }
   else if (w->repeat)
-    ev_timer_start (EV_A_ w);
+    {
+      w->at = w->repeat;
+      ev_timer_start (EV_A_ w);
+    }
 }
 
 #if EV_PERIODICS
@@ -1405,7 +1410,7 @@ ev_periodic_start (EV_P_ struct ev_periodic *w)
     }
 
   ev_start (EV_A_ (W)w, ++periodiccnt);
-  array_needsize (struct ev_periodic *, periodics, periodicmax, periodiccnt, (void));
+  array_needsize (struct ev_periodic *, periodics, periodicmax, periodiccnt, EMPTY2);
   periodics [periodiccnt - 1] = w;
   upheap ((WT *)periodics, periodiccnt - 1);
 
@@ -1446,7 +1451,7 @@ ev_idle_start (EV_P_ struct ev_idle *w)
     return;
 
   ev_start (EV_A_ (W)w, ++idlecnt);
-  array_needsize (struct ev_idle *, idles, idlemax, idlecnt, (void));
+  array_needsize (struct ev_idle *, idles, idlemax, idlecnt, EMPTY2);
   idles [idlecnt - 1] = w;
 }
 
@@ -1468,7 +1473,7 @@ ev_prepare_start (EV_P_ struct ev_prepare *w)
     return;
 
   ev_start (EV_A_ (W)w, ++preparecnt);
-  array_needsize (struct ev_prepare *, prepares, preparemax, preparecnt, (void));
+  array_needsize (struct ev_prepare *, prepares, preparemax, preparecnt, EMPTY2);
   prepares [preparecnt - 1] = w;
 }
 
@@ -1490,7 +1495,7 @@ ev_check_start (EV_P_ struct ev_check *w)
     return;
 
   ev_start (EV_A_ (W)w, ++checkcnt);
-  array_needsize (struct ev_check *, checks, checkmax, checkcnt, (void));
+  array_needsize (struct ev_check *, checks, checkmax, checkcnt, EMPTY2);
   checks [checkcnt - 1] = w;
 }
 

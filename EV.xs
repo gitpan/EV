@@ -169,7 +169,6 @@ e_cb (struct ev_watcher *w, int revents)
 
   PUTBACK;
   call_sv (w->cb_sv, G_DISCARD | G_VOID | G_EVAL);
-  SP = PL_stack_base + mark; PUTBACK;
 
   SvREFCNT_dec (sv_self);
   SvREFCNT_dec (sv_status);
@@ -184,8 +183,10 @@ e_cb (struct ev_watcher *w, int revents)
       PUSHMARK (SP);
       PUTBACK;
       call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
-      SP = PL_stack_base + mark; PUTBACK;
     }
+
+  SP = PL_stack_base + mark;
+  PUTBACK;
 }
 
 static ev_tstamp
@@ -322,15 +323,17 @@ BOOT:
 
     const_iv (EV, LOOP_ONESHOT)
     const_iv (EV, LOOP_NONBLOCK)
+    const_iv (EV, UNLOOP_ONE)
+    const_iv (EV, UNLOOP_ALL)
 
-    const_iv (EV, METHOD_AUTO)
     const_iv (EV, METHOD_SELECT)
     const_iv (EV, METHOD_POLL)
     const_iv (EV, METHOD_EPOLL)
     const_iv (EV, METHOD_KQUEUE)
     const_iv (EV, METHOD_DEVPOLL)
     const_iv (EV, METHOD_PORT)
-    const_iv (EV, METHOD_ANY)
+    const_iv (EV, FLAG_AUTO)
+    const_iv (EV, FLAG_NOENV)
   };
 
   for (civ = const_iv + sizeof (const_iv) / sizeof (const_iv [0]); civ-- > const_iv; )
@@ -393,7 +396,7 @@ int ev_method ()
 
 NV ev_time ()
 
-int ev_default_loop (int methods = EVMETHOD_AUTO)
+int ev_default_loop (int methods = EVFLAG_AUTO)
 
 void ev_loop (int flags = 0)
 

@@ -12,6 +12,7 @@ EV/DNS.pm
 EV/MakeMaker.pm
 
 t/00_load.t
+t/01_timer.t
 
 libev/LICENSE
 libev/README
