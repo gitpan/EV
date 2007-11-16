@@ -61,6 +61,10 @@ extern "C" {
 #  define EV_USE_KQUEUE 1
 # endif
 
+# if HAVE_PORT_H && HAVE_PORT_CREATE && !defined (EV_USE_PORT)
+#  define EV_USE_PORT 1
+# endif
+
 #endif
 
 #include <math.h>
@@ -92,12 +96,15 @@ extern "C" {
 /**/
 
 #ifndef EV_USE_MONOTONIC
-# define EV_USE_MONOTONIC 1
+# define EV_USE_MONOTONIC 0
+#endif
+
+#ifndef EV_USE_REALTIME
+# define EV_USE_REALTIME 0
 #endif
 
 #ifndef EV_USE_SELECT
 # define EV_USE_SELECT 1
-# define EV_SELECT_USE_FD_SET 1
 #endif
 
 #ifndef EV_USE_POLL
@@ -116,8 +123,8 @@ extern "C" {
 # define EV_USE_KQUEUE 0
 #endif
 
-#ifndef EV_USE_REALTIME
-# define EV_USE_REALTIME 1
+#ifndef EV_USE_PORT
+# define EV_USE_PORT 0
 #endif
 
 /**/
@@ -145,9 +152,9 @@ extern "C" {
 /**/
 
 #define MIN_TIMEJUMP  1. /* minimum timejump that gets detected (if monotonic clock available) */
-#define MAX_BLOCKTIME 59.731 /* never wait longer than this time (to detect time jumps) */
+#define MAX_BLOCKTIME 59.743 /* never wait longer than this time (to detect time jumps) */
 #define PID_HASHSIZE  16 /* size of pid hash table, must be power of two */
-/*#define CLEANUP_INTERVAL 300. /* how often to try to free memory and re-check fds */
+/*#define CLEANUP_INTERVAL (MAX_BLOCKTIME * 5.) /* how often to try to free memory and re-check fds */
 
 #ifdef EV_H
 # include EV_H
@@ -260,8 +267,8 @@ typedef struct
   };
   #include "ev_wrap.h"
 
-  struct ev_loop default_loop_struct;
-  static struct ev_loop *default_loop;
+  static struct ev_loop default_loop_struct;
+  struct ev_loop *ev_default_loop_ptr;
 
 #else
 
@@ -270,7 +277,7 @@ typedef struct
     #include "ev_vars.h"
   #undef VAR
 
-  static int default_loop;
+  static int ev_default_loop_ptr;
 
 #endif
 
@@ -616,7 +623,7 @@ ev_feed_signal_event (EV_P_ int signum)
   WL w;
 
 #if EV_MULTIPLICITY
-  assert (("feeding signal events is only supported in the default loop", loop == default_loop));
+  assert (("feeding signal events is only supported in the default loop", loop == ev_default_loop_ptr));
 #endif
 
   --signum;
@@ -712,6 +719,9 @@ childcb (EV_P_ struct ev_signal *sw, int revents)
 
 /*****************************************************************************/
 
+#if EV_USE_PORT
+# include "ev_port.c"
+#endif
 #if EV_USE_KQUEUE
 # include "ev_kqueue.c"
 #endif
@@ -780,6 +790,9 @@ loop_init (EV_P_ unsigned int flags)
         flags |= 0x0000ffff;
 
       method = 0;
+#if EV_USE_PORT
+      if (!method && (flags & EVMETHOD_PORT  )) method = port_init   (EV_A_ flags);
+#endif
 #if EV_USE_KQUEUE
       if (!method && (flags & EVMETHOD_KQUEUE)) method = kqueue_init (EV_A_ flags);
 #endif
@@ -803,6 +816,9 @@ loop_destroy (EV_P)
 {
   int i;
 
+#if EV_USE_PORT
+  if (method == EVMETHOD_PORT  ) port_destroy   (EV_A);
+#endif
 #if EV_USE_KQUEUE
   if (method == EVMETHOD_KQUEUE) kqueue_destroy (EV_A);
 #endif
@@ -835,11 +851,14 @@ loop_destroy (EV_P)
 static void
 loop_fork (EV_P)
 {
-#if EV_USE_EPOLL
-  if (method == EVMETHOD_EPOLL ) epoll_fork  (EV_A);
+#if EV_USE_PORT
+  if (method == EVMETHOD_PORT  ) port_fork   (EV_A);
 #endif
 #if EV_USE_KQUEUE
   if (method == EVMETHOD_KQUEUE) kqueue_fork (EV_A);
+#endif
+#if EV_USE_EPOLL
+  if (method == EVMETHOD_EPOLL ) epoll_fork  (EV_A);
 #endif
 
   if (ev_is_active (&sigev))
@@ -893,21 +912,22 @@ ev_loop_fork (EV_P)
 
 #if EV_MULTIPLICITY
 struct ev_loop *
+ev_default_loop_ (unsigned int flags)
 #else
 int
-#endif
 ev_default_loop (unsigned int flags)
+#endif
 {
   if (sigpipe [0] == sigpipe [1])
     if (pipe (sigpipe))
       return 0;
 
-  if (!default_loop)
+  if (!ev_default_loop_ptr)
     {
 #if EV_MULTIPLICITY
-      struct ev_loop *loop = default_loop = &default_loop_struct;
+      struct ev_loop *loop = ev_default_loop_ptr = &default_loop_struct;
 #else
-      default_loop = 1;
+      ev_default_loop_ptr = 1;
 #endif
 
       loop_init (EV_A_ flags);
@@ -924,17 +944,17 @@ ev_default_loop (unsigned int flags)
 #endif
         }
       else
-        default_loop = 0;
+        ev_default_loop_ptr = 0;
     }
 
-  return default_loop;
+  return ev_default_loop_ptr;
 }
 
 void
 ev_default_destroy (void)
 {
 #if EV_MULTIPLICITY
-  struct ev_loop *loop = default_loop;
+  struct ev_loop *loop = ev_default_loop_ptr;
 #endif
 
 #ifndef _WIN32
@@ -955,7 +975,7 @@ void
 ev_default_fork (void)
 {
 #if EV_MULTIPLICITY
-  struct ev_loop *loop = default_loop;
+  struct ev_loop *loop = ev_default_loop_ptr;
 #endif
 
   if (method)
@@ -1518,7 +1538,7 @@ void
 ev_signal_start (EV_P_ struct ev_signal *w)
 {
 #if EV_MULTIPLICITY
-  assert (("signal watchers are only supported in the default loop", loop == default_loop));
+  assert (("signal watchers are only supported in the default loop", loop == ev_default_loop_ptr));
 #endif
   if (ev_is_active (w))
     return;
@@ -1561,7 +1581,7 @@ void
 ev_child_start (EV_P_ struct ev_child *w)
 {
 #if EV_MULTIPLICITY
-  assert (("child watchers are only supported in the default loop", loop == default_loop));
+  assert (("child watchers are only supported in the default loop", loop == ev_default_loop_ptr));
 #endif
   if (ev_is_active (w))
     return;

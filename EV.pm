@@ -59,7 +59,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '0.9';
+   our $VERSION = '1.0';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -95,7 +95,7 @@ Returns the time the last event loop iteration has been started. This
 is the time that (relative) timers are based on, and refering to it is
 usually faster then calling EV::time.
 
-=item $method = EV::ev_method
+=item $method = EV::method
 
 Returns an integer describing the backend used by libev (EV::METHOD_SELECT
 or EV::METHOD_EPOLL).
@@ -545,7 +545,7 @@ default_loop
 
 =head1 SEE ALSO
 
-  L<EV::DNS>, L<EV::AnyEvent>.
+  L<EV::DNS>.
 
 =head1 AUTHOR
 

@@ -489,7 +489,7 @@ struct ev_check *check (SV *cb)
 
 struct ev_child *child (int pid, SV *cb)
 	ALIAS:
-        check_ns = 1
+        child_ns = 1
 	CODE:
         RETVAL = e_new (sizeof (struct ev_child), cb);
         ev_child_set (RETVAL, pid);

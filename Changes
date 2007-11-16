@@ -1,5 +1,12 @@
 Revision history for Perl extension EV
 
+1.0  Fri Nov 16 14:51:59 CET 2007
+	- require AnyEvent update if AnyEvent is installed.
+	- add solaris 10 port-based backend.
+        - add child_ns and fix check_ns.
+        - treat yes/no as enforcement, not as hint, when configuring,
+          documentation update (reported by Andy Grundman).
+
 0.9  Wed Nov 14 22:24:49 CET 2007
 	- changed LIBEV_METHODS to LIBEV_FLAGS and the
           way this is used inside libev.

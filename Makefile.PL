@@ -3,7 +3,6 @@ use 5.006;
 use Config;
 use ExtUtils::MakeMaker;
 
-
 unless (-e "libev/ev_epoll.c") {
    print <<EOF;
 
@@ -19,8 +18,8 @@ EOF
 
 print <<EOF;
 
-
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
 
 Welcome to EV configuration. If you are in a hurry, just press return here
 and hope for the best. The defaults should usually do.
@@ -33,8 +32,8 @@ if (prompt ("Skip further questions and use defaults (y/n)?", "y") =~ /[yY]/) {
 
 print <<EOF;
 
-
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
 
 POSIX optionally offers support for a monotonic clock source. EV
 can take advantage of this clock source to detect time jumps
@@ -45,14 +44,12 @@ will otherwise be autodetected at both compile- and runtime.
 
 EOF
 
-if (prompt ("Enable optional support for CLOCK_MONOTONIC (y/n)?", "y") =~ /[yY]/) {
-   $DEFINE .= " -DEV_USE_MONOTONIC";
-}
+$DEFINE .= " -DEV_USE_MONOTONIC=" . (0 + (prompt ("Enable optional support for CLOCK_MONOTONIC (y/n)?", "y") =~ /[yY]/));
 
 print <<EOF;
 
-
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
 
 POSIX optionally offers support for a (potentially) high-resolution
 realtime clock interface. In a good implementation, using it is faster
@@ -63,31 +60,29 @@ type will be autodetected at compiletime.
 
 EOF
 
-if (prompt ("Prefer clock_gettime (CLOCK_REALTIME) over gettimeofday (y/n)?", "y") !~ /[yY]/) {
-   $DEFINE .= " -DEV_USE_REALTIME=0";
-}
+$DEFINE .= " -DEV_USE_REALTIME=" . (0 + (prompt ("Prefer clock_gettime (CLOCK_REALTIME) over gettimeofday (y/n)?", "y") =~ /[yY]/));
 
 print <<EOF;
 
-
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
 
 EV can use various backends with various portability issue. The select
 backend is the most portable and makes for a good fallback, but it can be
-limited to a low number of file descriptors and/or might not compile.  If
-you have problems with compiling ev_select., you might try to play around
+limited to a low number of file descriptors and/or might not compile. If
+you have problems with compiling ev_select.c, you might try to play around
 with disabling it here, or forcing it to use the fd_set provided by your
 OS, via the next question. I highly recommend keeping it in.
 
 EOF
 
 if (prompt ("Enable select backend (y/n)?", "y") =~ /[yY]/) {
-   $DEFINE .= " -DEV_USE_SELECT";
+   $DEFINE .= " -DEV_USE_SELECT=1";
 
    print <<EOF;
 
-
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
 
 The select backend can operate in two modes. One uses the system-provided
 fd_set and is usually limited to 1024 file descriptors (64 on windows),
@@ -100,12 +95,14 @@ EOF
    if (prompt ("Force use of system fd_set for select backend (y/n)?", "n") =~ /[yY]/) {
       $DEFINE .= " -DEV_SELECT_USE_FD_SET";
    } 
+} else {
+   $DEFINE .= " -DEV_USE_SELECT=0";
 } 
 
 print <<EOF;
 
-
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
 
 The second very portable backend is poll(2). It does not exist on windows
 and various versions of Mac OS X (and on the other versions it simply
@@ -114,17 +111,15 @@ the default here unless you run into compile problems in ev_poll.c.
 
 EOF
 
-if (prompt ("Enable poll backend (y/n)?", (-e "/usr/include/poll.h") ? "y" : "n") =~ /[yY]/) {
-   $DEFINE .= " -DEV_USE_POLL";
-} 
+$DEFINE .= " -DEV_USE_POLL=" . (0 + (prompt ("Enable poll backend (y/n)?", (-e "/usr/include/poll.h") ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 
-
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
+
 EV by default uses select, which makes it hard to write efficient servers,
-especially if the number of active conencitons is much lower than the open
+especially if the number of active connections is much lower than the open
 ones. GNU/Linux systems have a more scalable method called "epoll", which
 EV can use. For this to work, both your kernel and glibc have to support
 epoll, but if you can compile it, the detection will be done at runtime,
@@ -133,14 +128,12 @@ If unsure, accept the default.
 
 EOF
 
-if (prompt ("Enable epoll backend (y/n)?", (-e "/usr/include/sys/epoll.h") ? "y" : "n") =~ /[yY]/) {
-   $DEFINE .= " -DEV_USE_EPOLL";
-} 
+$DEFINE .= " -DEV_USE_EPOLL=" . (0 + (prompt ("Enable epoll backend (y/n)?", (-e "/usr/include/sys/epoll.h") ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 
-
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
 
 Similarly to the epoll backend above, EV can take advantage of kqueue
 on many BSD systems (it seems to be broken on Mac OS X though, but what
@@ -151,14 +144,25 @@ cannot be used.
 
 EOF
 
-if (prompt ("Enable kqueue backend (y/n)?", (-e "/usr/include/sys/event.h") ? "y" : "n") =~ /[yY]/) {
-   $DEFINE .= " -DEV_USE_KQUEUE";
-} 
+$DEFINE .= " -DEV_USE_KQUEUE=" . (0 + (prompt ("Enable kqueue backend (y/n)?", (-e "/usr/include/sys/event.h") ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
+
+Similarly to the kqueue backend above, EV can take advantage of the
+solaris 10 port interface. Support for port will be detected at runtime,
+with a safe fallback to other methods when it cannot be used.
+
+EOF
+
+$DEFINE .= " -DEV_USE_PORT=" . (0 + (prompt ("Enable port backend (y/n)?", (-e "/usr/include/sys/port.h") ? "y" : "n") =~ /[yY]/));
+
+print <<EOF;
 
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
 
 EV needs the functions pthread_atfork and clock_gettime. On most systems
 you need some special libraries for this (such as -lrt and -lpthread). You
@@ -172,10 +176,12 @@ $LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "-lpthre
 
 print <<EOF;
 
-
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
+
 EOF
+
+my @anyevent = eval { require AnyEvent; $AnyEvent::VERSION < 2.6 } ? (AnyEvent => 2.6) : ();
 
 WriteMakefile(
     dist	=> {
@@ -192,6 +198,9 @@ WriteMakefile(
     DEFINE    => "$DEFINE",
     NAME => "EV",
     LIBS => [$LIBS],
+    PREREQ_PM => {
+       @anyevent,
+    },
     VERSION_FROM => "EV.pm",
     PM           => {
     		    'EV.pm'		=> '$(INST_LIBDIR)/EV.pm',

@@ -66,7 +66,7 @@ BASIC INTERFACE
         This is the time that (relative) timers are based on, and refering
         to it is usually faster then calling EV::time.
 
-    $method = EV::ev_method
+    $method = EV::method
         Returns an integer describing the backend used by libev
         (EV::METHOD_SELECT or EV::METHOD_EPOLL).
 
@@ -452,7 +452,7 @@ THREADS
     evil stuff and must die.
 
 SEE ALSO
-      L<EV::DNS>, L<EV::AnyEvent>.
+      L<EV::DNS>.
 
 AUTHOR
      Marc Lehmann <schmorp@schmorp.de>

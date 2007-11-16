@@ -241,7 +241,7 @@ union ev_any_watcher
 #define EVMETHOD_EPOLL   0x00000004 /* linux */
 #define EVMETHOD_KQUEUE  0x00000008 /* bsd */
 #define EVMETHOD_DEVPOLL 0x00000010 /* solaris 8 */ /* NYI */
-#define EVMETHOD_PORT    0x00000020 /* solaris 10 */ /* NYI */
+#define EVMETHOD_PORT    0x00000020 /* solaris 10 */
 
 /* flag bits */
 #define EVFLAG_NOENV     0x01000000 /* do NOT consult environment */
@@ -269,7 +269,17 @@ void ev_set_syserr_cb (void (*cb)(const char *msg));
 # if EV_MULTIPLICITY
 /* the default loop is the only one that handles signals and child watchers */
 /* you can call this as often as you like */
-struct ev_loop *ev_default_loop (unsigned int flags); /* returns default loop */
+static struct ev_loop *
+ev_default_loop (unsigned int flags)
+{
+  extern struct ev_loop *ev_default_loop_ptr;
+  extern struct ev_loop *ev_default_loop_ (unsigned int flags);
+
+  if (!ev_default_loop_ptr)
+    ev_default_loop_ (flags);
+
+  return ev_default_loop_ptr;
+}
 
 /* create and destroy alternative loops that don't handle signals */
 struct ev_loop *ev_loop_new (unsigned int flags);
