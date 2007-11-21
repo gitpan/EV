@@ -1,5 +1,10 @@
 Revision history for Perl extension EV
 
+1.1  Wed Nov 21 06:08:48 CET 2007
+	- improved timer test to include periodics and
+          withstand small timing variations.
+        - many minor tweaks to libev.
+
 1.0  Fri Nov 16 14:51:59 CET 2007
 	- require AnyEvent update if AnyEvent is installed.
 	- add solaris 10 port-based backend.

@@ -43,26 +43,53 @@ extern "C" {
 #  ifndef EV_USE_REALTIME
 #   define EV_USE_REALTIME  1
 #  endif
+# else
+#  ifndef EV_USE_MONOTONIC
+#   define EV_USE_MONOTONIC 0
+#  endif
+#  ifndef EV_USE_REALTIME
+#   define EV_USE_REALTIME  0
+#  endif
 # endif
 
-# if HAVE_SELECT && HAVE_SYS_SELECT_H && !defined (EV_USE_SELECT)
-#  define EV_USE_SELECT 1
+# ifndef EV_USE_SELECT
+#  if HAVE_SELECT && HAVE_SYS_SELECT_H
+#   define EV_USE_SELECT 1
+#  else
+#   define EV_USE_SELECT 0
+#  endif
 # endif
 
-# if HAVE_POLL && HAVE_POLL_H && !defined (EV_USE_POLL)
-#  define EV_USE_POLL 1
+# ifndef EV_USE_POLL
+#  if HAVE_POLL && HAVE_POLL_H
+#   define EV_USE_POLL 1
+#  else
+#   define EV_USE_POLL 0
+#  endif
 # endif
-
-# if HAVE_EPOLL_CTL && HAVE_SYS_EPOLL_H && !defined (EV_USE_EPOLL)
-#  define EV_USE_EPOLL 1
+   
+# ifndef EV_USE_EPOLL
+#  if HAVE_EPOLL_CTL && HAVE_SYS_EPOLL_H
+#   define EV_USE_EPOLL 1
+#  else
+#   define EV_USE_EPOLL 0
+#  endif
 # endif
-
-# if HAVE_KQUEUE && HAVE_SYS_EVENT_H && HAVE_SYS_QUEUE_H && !defined (EV_USE_KQUEUE)
-#  define EV_USE_KQUEUE 1
+   
+# ifndef EV_USE_KQUEUE
+#  if HAVE_KQUEUE && HAVE_SYS_EVENT_H && HAVE_SYS_QUEUE_H
+#   define EV_USE_KQUEUE 1
+#  else
+#   define EV_USE_KQUEUE 0
+#  endif
 # endif
-
-# if HAVE_PORT_H && HAVE_PORT_CREATE && !defined (EV_USE_PORT)
-#  define EV_USE_PORT 1
+   
+# ifndef EV_USE_PORT
+#  if HAVE_PORT_H && HAVE_PORT_CREATE
+#   define EV_USE_PORT 1
+#  else
+#   define EV_USE_PORT 0
+#  endif
 # endif
 
 #endif
@@ -164,7 +191,7 @@ extern "C" {
 
 #if __GNUC__ >= 3
 # define expect(expr,value)         __builtin_expect ((expr),(value))
-# define inline                     inline
+# define inline                     static inline
 #else
 # define expect(expr,value)         (expr)
 # define inline                     static
@@ -368,7 +395,7 @@ ev_feed_event (EV_P_ void *w, int revents)
 {
   W w_ = (W)w;
 
-  if (w_->pending)
+  if (expect_false (w_->pending))
     {
       pendings [ABSPRI (w_)][w_->pending - 1].events |= revents;
       return;
@@ -412,7 +439,7 @@ ev_feed_fd_event (EV_P_ int fd, int revents)
 
 /*****************************************************************************/
 
-static void
+inline void
 fd_reify (EV_P)
 {
   int i;
@@ -449,7 +476,7 @@ fd_reify (EV_P)
 static void
 fd_change (EV_P_ int fd)
 {
-  if (anfds [fd].reify)
+  if (expect_false (anfds [fd].reify))
     return;
 
   anfds [fd].reify = 1;
@@ -471,7 +498,7 @@ fd_kill (EV_P_ int fd)
     }
 }
 
-static int
+inline int
 fd_valid (int fd)
 {
 #ifdef _WIN32
@@ -650,7 +677,7 @@ sigcb (EV_P_ struct ev_io *iow, int revents)
       ev_feed_signal_event (EV_A_ signum + 1);
 }
 
-inline void
+static void
 fd_intern (int fd)
 {
 #ifdef _WIN32
@@ -811,7 +838,7 @@ loop_init (EV_P_ unsigned int flags)
     }
 }
 
-void
+static void
 loop_destroy (EV_P)
 {
   int i;
@@ -912,7 +939,7 @@ ev_loop_fork (EV_P)
 
 #if EV_MULTIPLICITY
 struct ev_loop *
-ev_default_loop_ (unsigned int flags)
+ev_default_loop_init (unsigned int flags)
 #else
 int
 ev_default_loop (unsigned int flags)
@@ -996,7 +1023,7 @@ any_pending (EV_P)
   return 0;
 }
 
-static void
+inline void
 call_pending (EV_P)
 {
   int pri;
@@ -1006,7 +1033,7 @@ call_pending (EV_P)
       {
         ANPENDING *p = pendings [pri] + --pendingcnt [pri];
 
-        if (p->w)
+        if (expect_true (p->w))
           {
             p->w->pending = 0;
             EV_CB_INVOKE (p->w, p->events);
@@ -1014,7 +1041,7 @@ call_pending (EV_P)
       }
 }
 
-static void
+inline void
 timers_reify (EV_P)
 {
   while (timercnt && ((WT)timers [0])->at <= mn_now)
@@ -1042,7 +1069,7 @@ timers_reify (EV_P)
 }
 
 #if EV_PERIODICS
-static void
+inline void
 periodics_reify (EV_P)
 {
   while (periodiccnt && ((WT)periodics [0])->at <= ev_rt_now)
@@ -1111,7 +1138,7 @@ time_update_monotonic (EV_P)
     }
 }
 
-static void
+inline void
 time_update (EV_P)
 {
   int i;
@@ -1232,7 +1259,7 @@ ev_loop (EV_P_ int flags)
             }
 #endif
 
-          if (block < 0.) block = 0.;
+          if (expect_false (block < 0.)) block = 0.;
         }
 
       method_poll (EV_A_ block);
@@ -1251,12 +1278,12 @@ ev_loop (EV_P_ int flags)
         queue_events (EV_A_ (W *)idles, idlecnt, EV_IDLE);
 
       /* queue check watchers, to be executed first */
-      if (checkcnt)
+      if (expect_false (checkcnt))
         queue_events (EV_A_ (W *)checks, checkcnt, EV_CHECK);
 
       call_pending (EV_A);
 
-      if (loop_done)
+      if (expect_false (loop_done))
         break;
     }
 
@@ -1328,7 +1355,7 @@ ev_io_start (EV_P_ struct ev_io *w)
 {
   int fd = w->fd;
 
-  if (ev_is_active (w))
+  if (expect_false (ev_is_active (w)))
     return;
 
   assert (("ev_io_start called with negative fd", fd >= 0));
@@ -1344,7 +1371,7 @@ void
 ev_io_stop (EV_P_ struct ev_io *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (!ev_is_active (w))
+  if (expect_false (!ev_is_active (w)))
     return;
 
   assert (("ev_io_start called with illegal fd (must stay constant after start!)", w->fd >= 0 && w->fd < anfdmax));
@@ -1358,7 +1385,7 @@ ev_io_stop (EV_P_ struct ev_io *w)
 void
 ev_timer_start (EV_P_ struct ev_timer *w)
 {
-  if (ev_is_active (w))
+  if (expect_false (ev_is_active (w)))
     return;
 
   ((WT)w)->at += mn_now;
@@ -1377,12 +1404,12 @@ void
 ev_timer_stop (EV_P_ struct ev_timer *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (!ev_is_active (w))
+  if (expect_false (!ev_is_active (w)))
     return;
 
   assert (("internal timer heap corruption", timers [((W)w)->active - 1] == w));
 
-  if (((W)w)->active < timercnt--)
+  if (expect_true (((W)w)->active < timercnt--))
     {
       timers [((W)w)->active - 1] = timers [timercnt];
       adjustheap ((WT *)timers, timercnt, ((W)w)->active - 1);
@@ -1417,7 +1444,7 @@ ev_timer_again (EV_P_ struct ev_timer *w)
 void
 ev_periodic_start (EV_P_ struct ev_periodic *w)
 {
-  if (ev_is_active (w))
+  if (expect_false (ev_is_active (w)))
     return;
 
   if (w->reschedule_cb)
@@ -1441,12 +1468,12 @@ void
 ev_periodic_stop (EV_P_ struct ev_periodic *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (!ev_is_active (w))
+  if (expect_false (!ev_is_active (w)))
     return;
 
   assert (("internal periodic heap corruption", periodics [((W)w)->active - 1] == w));
 
-  if (((W)w)->active < periodiccnt--)
+  if (expect_true (((W)w)->active < periodiccnt--))
     {
       periodics [((W)w)->active - 1] = periodics [periodiccnt];
       adjustheap ((WT *)periodics, periodiccnt, ((W)w)->active - 1);
@@ -1467,7 +1494,7 @@ ev_periodic_again (EV_P_ struct ev_periodic *w)
 void
 ev_idle_start (EV_P_ struct ev_idle *w)
 {
-  if (ev_is_active (w))
+  if (expect_false (ev_is_active (w)))
     return;
 
   ev_start (EV_A_ (W)w, ++idlecnt);
@@ -1479,7 +1506,7 @@ void
 ev_idle_stop (EV_P_ struct ev_idle *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (!ev_is_active (w))
+  if (expect_false (!ev_is_active (w)))
     return;
 
   idles [((W)w)->active - 1] = idles [--idlecnt];
@@ -1489,7 +1516,7 @@ ev_idle_stop (EV_P_ struct ev_idle *w)
 void
 ev_prepare_start (EV_P_ struct ev_prepare *w)
 {
-  if (ev_is_active (w))
+  if (expect_false (ev_is_active (w)))
     return;
 
   ev_start (EV_A_ (W)w, ++preparecnt);
@@ -1501,7 +1528,7 @@ void
 ev_prepare_stop (EV_P_ struct ev_prepare *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (!ev_is_active (w))
+  if (expect_false (!ev_is_active (w)))
     return;
 
   prepares [((W)w)->active - 1] = prepares [--preparecnt];
@@ -1511,7 +1538,7 @@ ev_prepare_stop (EV_P_ struct ev_prepare *w)
 void
 ev_check_start (EV_P_ struct ev_check *w)
 {
-  if (ev_is_active (w))
+  if (expect_false (ev_is_active (w)))
     return;
 
   ev_start (EV_A_ (W)w, ++checkcnt);
@@ -1523,7 +1550,7 @@ void
 ev_check_stop (EV_P_ struct ev_check *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (!ev_is_active (w))
+  if (expect_false (!ev_is_active (w)))
     return;
 
   checks [((W)w)->active - 1] = checks [--checkcnt];
@@ -1540,7 +1567,7 @@ ev_signal_start (EV_P_ struct ev_signal *w)
 #if EV_MULTIPLICITY
   assert (("signal watchers are only supported in the default loop", loop == ev_default_loop_ptr));
 #endif
-  if (ev_is_active (w))
+  if (expect_false (ev_is_active (w)))
     return;
 
   assert (("ev_signal_start called with illegal signal number", w->signum > 0));
@@ -1567,7 +1594,7 @@ void
 ev_signal_stop (EV_P_ struct ev_signal *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (!ev_is_active (w))
+  if (expect_false (!ev_is_active (w)))
     return;
 
   wlist_del ((WL *)&signals [w->signum - 1].head, (WL)w);
@@ -1583,7 +1610,7 @@ ev_child_start (EV_P_ struct ev_child *w)
 #if EV_MULTIPLICITY
   assert (("child watchers are only supported in the default loop", loop == ev_default_loop_ptr));
 #endif
-  if (ev_is_active (w))
+  if (expect_false (ev_is_active (w)))
     return;
 
   ev_start (EV_A_ (W)w, 1);
@@ -1594,7 +1621,7 @@ void
 ev_child_stop (EV_P_ struct ev_child *w)
 {
   ev_clear_pending (EV_A_ (W)w);
-  if (!ev_is_active (w))
+  if (expect_false (!ev_is_active (w)))
     return;
 
   wlist_del ((WL *)&childs [w->pid & (PID_HASHSIZE - 1)], (WL)w);
@@ -1641,26 +1668,27 @@ ev_once (EV_P_ int fd, int events, ev_tstamp timeout, void (*cb)(int revents, vo
 {
   struct ev_once *once = (struct ev_once *)ev_malloc (sizeof (struct ev_once));
 
-  if (!once)
-    cb (EV_ERROR | EV_READ | EV_WRITE | EV_TIMEOUT, arg);
-  else
+  if (expect_false (!once))
     {
-      once->cb  = cb;
-      once->arg = arg;
+      cb (EV_ERROR | EV_READ | EV_WRITE | EV_TIMEOUT, arg);
+      return;
+    }
 
-      ev_init (&once->io, once_cb_io);
-      if (fd >= 0)
-        {
-          ev_io_set (&once->io, fd, events);
-          ev_io_start (EV_A_ &once->io);
-        }
+  once->cb  = cb;
+  once->arg = arg;
 
-      ev_init (&once->to, once_cb_to);
-      if (timeout >= 0.)
-        {
-          ev_timer_set (&once->to, timeout, 0.);
-          ev_timer_start (EV_A_ &once->to);
-        }
+  ev_init (&once->io, once_cb_io);
+  if (fd >= 0)
+    {
+      ev_io_set (&once->io, fd, events);
+      ev_io_start (EV_A_ &once->io);
+    }
+
+  ev_init (&once->to, once_cb_to);
+  if (timeout >= 0.)
+    {
+      ev_timer_set (&once->to, timeout, 0.);
+      ev_timer_start (EV_A_ &once->to);
     }
 }
 

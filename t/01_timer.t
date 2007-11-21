@@ -1,28 +1,53 @@
-BEGIN { $| = 1; print "1..3002\n"; }
+BEGIN { $| = 1; print "1..6002\n"; }
+
+no warnings;
+use strict;
 
 use EV;
 
 my $id = 1;
 my @timer;
+my @periodic;
 
 my $base = EV::now;
 my $prev = EV::now;
 
-for (1..1000) {
-   my $t = $_ * $_ * 1.735435336; $t -= int $t;
+for my $i (1..1000) {
+   my $t = $i * $i * 1.735435336; $t -= int $t;
    push @timer, EV::timer $t, 0, sub {
-      print EV::now >= $prev ? "" : "not ", "ok ", ++$id, "\n";
-      print EV::now >= $base + $t ? "" : "not ", "ok ", ++$id, "\n";
+      my $now = EV::now;
+
+      print $now >= $prev      ? "" : "not ", "ok ", ++$id, " # t0 $i $now >= $prev\n";
+      print $now >= $base + $t ? "" : "not ", "ok ", ++$id, " # t1 $i $now >= $base + $t\n";
 
       unless ($id % 3) {
-         $_[0]->set ($t * 0.0625);
+         $t *= 0.0625;
+         $_[0]->set ($t);
+         $_[0]->start;
+         $t = $now + $t - $base;
+      }
+
+      $prev = $now;
+   };
+
+   my $t = $i * $i * 1.375475771; $t -= int $t;
+   push @periodic, EV::periodic $base + $t, 0, 0, sub {
+      my $now = EV::now;
+
+      print $now >= $prev      ? "" : "not ", "ok ", ++$id, " # p0 $i $now >= $prev\n";
+      print $now >= $base + $t ? "" : "not ", "ok ", ++$id, " # p1 $i $now >= $base + $t\n";
+
+      unless ($id % 3) {
          $t *= 1.0625;
+         $_[0]->set ($base + $t);
          $_[0]->start;
       }
+
+      $prev = $now;
    };
 }
 
 print "ok 1\n";
 EV::loop;
-print "ok 3002\n";
+print "ok 6002\n";
 
