@@ -135,16 +135,25 @@ print <<EOF;
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
 
-Similarly to the epoll backend above, EV can take advantage of kqueue
-on many BSD systems (it seems to be broken on Mac OS X though, but what
-isn't broken on that shoddy platform... ah yes, the cash gushing by apple,
-selling defective software works perfectly there). Support for kqueue will
-be detected at runtime, with a safe fallback to other methods when it
-cannot be used.
+Similarly to the epoll backend above, EV can take advantage of kqueue on
+many BSD systems. Support for kqueue will be detected at runtime, with a
+safe fallback to other methods when it cannot be used.
+
+Note that kqueue is broken on most operating systems, so it defaults to
+'n' on most platforms that claim to support it. Here is what we know:
+
+OS X:    completely, utterly broken on at least <= 10.5.
+FreeBSD: broken on at least <= 6.2-STABLE,
+         sockets and pipes *might* work, ptys definitely don't.
+NetBSD:  reports indicate that it likely WORKS. Yeah! :)
+OpenBSD: reports indicate that it likely doesn't work
+         (similar problems as on FreeBSD).
 
 EOF
 
-$DEFINE .= " -DEV_USE_KQUEUE=" . (0 + (prompt ("Enable kqueue backend (y/n)?", (-e "/usr/include/sys/event.h") ? "y" : "n") =~ /[yY]/));
+my $can_kqueue = $^O =~ /netbsd/i && -e "/usr/include/sys/event.h";
+
+$DEFINE .= " -DEV_USE_KQUEUE=" . (0 + (prompt ("Enable kqueue backend (y/n)?", $can_kqueue ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 
@@ -166,12 +175,14 @@ print <<EOF;
 
 EV needs the functions pthread_atfork and clock_gettime. On most systems
 you need some special libraries for this (such as -lrt and -lpthread). You
-can specify additional libraries to provide these calls now, or accept the
-default.
+can specify additional libraries to provide these calls (and any other
+required by EV) now, or accept the default.
 
 EOF
 
-$LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "-lpthread -lrt";
+$SOLARIS_LIBS = $^O =~ /solaris/ ? " -lsocket -lnsl" : "";
+
+$LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "-lpthread -lrt$SOLARIS_LIBS";
 
 
 print <<EOF;

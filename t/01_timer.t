@@ -5,6 +5,8 @@ use strict;
 
 use EV;
 
+my $fudge = 0.02; # allow rt and monotonic clock to disagree by this much
+
 my $id = 1;
 my @timer;
 my @periodic;
@@ -17,8 +19,8 @@ for my $i (1..1000) {
    push @timer, EV::timer $t, 0, sub {
       my $now = EV::now;
 
-      print $now >= $prev      ? "" : "not ", "ok ", ++$id, " # t0 $i $now >= $prev\n";
-      print $now >= $base + $t ? "" : "not ", "ok ", ++$id, " # t1 $i $now >= $base + $t\n";
+      print $now + $fudge >= $prev      ? "" : "not ", "ok ", ++$id, " # t0 $i $now + $fudge >= $prev\n";
+      print $now + $fudge >= $base + $t ? "" : "not ", "ok ", ++$id, " # t1 $i $now + $fudge >= $base + $t\n";
 
       unless ($id % 3) {
          $t *= 0.0625;

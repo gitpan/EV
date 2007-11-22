@@ -1,5 +1,13 @@
 Revision history for Perl extension EV
 
+1.2  Thu Nov 22 05:44:09 CET 2007
+        - disable kqueue by default on !netbsd, as its broken on freebsd,
+          darwin and openbsd and thus almost everywhere.
+        - add some allowance in t/01_timer.t for the uneven monotonic
+          vs. realtime clock tick on at least freebsd.
+        - add -lsocket -lnsl on solaris in case the perl guy forgot to
+          configure them.
+
 1.1  Wed Nov 21 06:08:48 CET 2007
 	- improved timer test to include periodics and
           withstand small timing variations.
