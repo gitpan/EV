@@ -118,13 +118,13 @@ print <<EOF;
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
 
-EV by default uses select, which makes it hard to write efficient servers,
-especially if the number of active connections is much lower than the open
-ones. GNU/Linux systems have a more scalable method called "epoll", which
-EV can use. For this to work, both your kernel and glibc have to support
-epoll, but if you can compile it, the detection will be done at runtime,
-and EV will safely fall back to using select when epoll isn't available.
-If unsure, accept the default.
+Select and poll make it hard to write efficient servers, especially if the
+number of active connections is much lower than the watched ones. GNU/Linux
+systems have a more scalable method called "epoll", which EV can use. For
+this to work, both your kernel and glibc have to support epoll, but if you
+can compile it, the detection will be done at runtime, and EV will safely
+fall back to using select when epoll isn't available. If unsure, accept
+the default.
 
 EOF
 
@@ -140,14 +140,14 @@ many BSD systems. Support for kqueue will be detected at runtime, with a
 safe fallback to other methods when it cannot be used.
 
 Note that kqueue is broken on most operating systems, so it defaults to
-'n' on most platforms that claim to support it. Here is what we know:
+'n' on everything but netbsd. Here is what we know:
 
-OS X:    completely, utterly broken on at least <= 10.5.
-FreeBSD: broken on at least <= 6.2-STABLE,
+NetBSD:  working in at least 3.1. Yeah! :)
+FreeBSD: broken on at least 6.2-STABLE,
          sockets and pipes *might* work, ptys definitely don't.
-NetBSD:  reports indicate that it likely WORKS. Yeah! :)
 OpenBSD: reports indicate that it likely doesn't work
          (similar problems as on FreeBSD).
+OS X:    completely, utterly broken on at least <= 10.5.
 
 EOF
 

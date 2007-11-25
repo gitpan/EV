@@ -1,5 +1,16 @@
 Revision history for Perl extension EV
 
+1.3  Sun Nov 25 10:46:57 CET 2007
+	- stopping idle/check/prepare watchers could cause data corruption.
+	- implement and document EV::once.
+        - improved documentation, verify that netbsd indeed has the only
+          working kqueue implementation (out of darwin, freebsd, netbsd and
+          openbsd). Praise them!
+        - fix the data method so it might work.
+        - expose ev_ref/ev_unref to the C API.
+        - expose ref/unref in form of the ->keepalive method to perl.
+        - minor bugfixes and portability fixes.
+
 1.2  Thu Nov 22 05:44:09 CET 2007
         - disable kqueue by default on !netbsd, as its broken on freebsd,
           darwin and openbsd and thus almost everywhere.

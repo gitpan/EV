@@ -50,7 +50,11 @@ EV - perl interface to libev, a high performance full-featured event loop
 =head1 DESCRIPTION
 
 This module provides an interface to libev
-(L<http://software.schmorp.de/pkg/libev.html>).
+(L<http://software.schmorp.de/pkg/libev.html>). While the documentation
+below is comprehensive, one might also consult the documentation of libev
+itself (L<http://cvs.schmorp.de/libev/ev.html>) for more subtle details on
+watcher semantics or some discussion on the available backends, or how to
+force a specific backend with C<LIBEV_FLAGS>.
 
 =cut
 
@@ -59,12 +63,12 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '1.2';
+   our $VERSION = '1.3';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
 
-@EV::Io::ISA       =
+@EV::IO::ISA       =
 @EV::Timer::ISA    =
 @EV::Periodic::ISA =
 @EV::Signal::ISA   =
@@ -118,6 +122,29 @@ innermost call to EV::loop return.
 
 When called with an argument of EV::UNLOOP_ALL, all calls to EV::loop will return as
 fast as possible.
+
+=item EV::once $fh_or_undef, $events, $timeout, $cb->($revents)
+
+This function rolls together an I/O and a timer watcher for a single
+one-shot event without the need for managing a watcher object.
+
+If C<$fh_or_undef> is a filehandle or file descriptor, then C<$events>
+must be a bitset containing either C<EV::READ>, C<EV::WRITE> or C<EV::READ
+| EV::WRITE>, indicating the type of I/O event you want to wait for. If
+you do not want to wait for some I/O event, specify C<undef> for
+C<$fh_or_undef> and C<0> for C<$events>).
+
+If timeout is C<undef> or negative, then there will be no
+timeout. Otherwise a EV::timer with this value will be started.
+
+When an error occurs or either the timeout or I/O watcher triggers, then
+the callback will be called with the received event set (in general
+you can expect it to be a combination of C<EV:ERROR>, C<EV::READ>,
+C<EV::WRITE> and C<EV::TIMEOUT>).
+
+EV::once doesn't return anything: the watchers stay active till either
+of them triggers, then they will be stopped and freed, and the callback
+invoked.
 
 =back
 
@@ -212,12 +239,42 @@ priorities lies between EV::MAXPRI (default 2) and EV::MINPRI (default
 -2). If the priority is outside this range it will automatically be
 normalised to the nearest valid priority.
 
-The default priority of any newly-created weatcher is 0.
+The default priority of any newly-created watcher is 0.
+
+Note that the priority semantics have not yet been fleshed out and are
+subject to almost certain change.
 
 =item $w->trigger ($revents)
 
 Call the callback *now* with the given event mask.
 
+=item $previous_state = $w->keepalive ($bool)
+
+Normally, C<EV::loop> will return when there are no active watchers
+(which is a "deadlock" because no progress can be made anymore). This is
+convinient because it allows you to start your watchers (and your jobs),
+call C<EV::loop> once and when it returns you know that all your jobs are
+finished (or they forgot to register some watchers for their task :).
+
+Sometimes, however, this gets in your way, for example when you the module
+that calls C<EV::loop> (usually the main program) is not the same module
+as a long-living watcher (for example a DNS client module written by
+somebody else even). Then you might want any outstanding requests to be
+handled, but you would not want to keep C<EV::loop> from returning just
+because you happen to have this long-running UDP port watcher.
+
+In this case you can clear the keepalive status, which means that even
+though your watcher is active, it won't keep C<EV::loop> from returning.
+
+The initial value for keepalive is true (enabled), and you cna change it
+any time.
+
+Example: Register an IO watcher for some UDP socket but do not keep the
+event loop from running just because of that watcher.
+
+   my $udp_socket = ...
+   my $udp_watcher = EV::io $udp_socket, EV::READ, sub { ... };
+   $udp_watcher->keepalive (0);
 
 =item $w = EV::io $fileno_or_fh, $eventmask, $callback
 
@@ -255,9 +312,9 @@ Returns the previously set event mask and optionally set a new one.
 
 =item $w = EV::timer_ns $after, $repeat, $callback
 
-Calls the callback after C<$after> seconds. If C<$repeat> is non-zero,
-the timer will be restarted (with the $repeat value as $after) after the
-callback returns.
+Calls the callback after C<$after> seconds (which may be fractional). If
+C<$repeat> is non-zero, the timer will be restarted (with the $repeat
+value as $after) after the callback returns.
 
 This means that the callback would be called roughly after C<$after>
 seconds, and then every C<$repeat> seconds. The timer does his best not
@@ -495,28 +552,30 @@ example of integrating Net::SNMP (with some details left out):
          or return;
 
       # make the dispatcher handle any outstanding stuff
+      ... not shown
 
       # create an IO watcher for each and every socket
       @snmp_watcher = (
          (map { EV::io $_, EV::READ, sub { } }
              keys %{ $dispatcher->{_descriptors} }),
-      );
 
-      # if there are any timeouts, also create a timer
-      push @snmp_watcher, EV::timer $event->[Net::SNMP::Dispatcher::_TIME] - EV::now, 0, sub { }
-         if $event->[Net::SNMP::Dispatcher::_ACTIVE];
+         EV::timer +($event->[Net::SNMP::Dispatcher::_ACTIVE]
+                     ? $event->[Net::SNMP::Dispatcher::_TIME] - EV::now : 0),
+                    0, sub { },
+      );
    };
 
-The callbacks are irrelevant, the only purpose of those watchers is
-to wake up the process as soon as one of those events occurs (socket
-readable, or timer timed out). The corresponding EV::check watcher will then
-clean up:
+The callbacks are irrelevant (and are not even being called), the
+only purpose of those watchers is to wake up the process as soon as
+one of those events occurs (socket readable, or timer timed out). The
+corresponding EV::check watcher will then clean up:
 
    our $snmp_check = EV::check sub {
       # destroy all watchers
       @snmp_watcher = ();
 
       # make the dispatcher handle any new stuff
+      ... not shown
    };
 
 The callbacks of the created watchers will not be called as the watchers
@@ -529,8 +588,26 @@ The C<check_ns> variant doesn't start (activate) the newly created watcher.
 
 =head1 THREADS
 
-Threads are not supported by this in any way. Perl pseudo-threads is evil
-stuff and must die.
+Threads are not supported by this module in any way. Perl pseudo-threads
+is evil stuff and must die. As soon as Perl gains real threads I will work
+on thread support for it.
+
+=head1 FORK
+
+Most of the "improved" event delivering mechanisms of modern operating
+systems have quite a few problems with fork(2) (to put it bluntly: it is
+not supported and usually destructive). Libev makes it possible to work
+around this by having a function that recreates the kernel state after
+fork in the child.
+
+On non-win32 platforms, this module requires the pthread_atfork
+functionality to do this automatically for you. This function is quite
+buggy on most BSDs, though, so YMMV. The overhead for this is quite
+negligible, because everything the function currently does is set a flag
+that is checked only when the event loop gets used the next time, so when
+you do fork but not use EV, the overhead is minimal.
+
+On win32, there is no notion of fork so all this doesn't apply, of course.
 
 =cut
 

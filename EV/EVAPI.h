@@ -12,8 +12,9 @@
 # define aTHX
 #endif
 
-#define EV_COMMON			\
-  SV *self; /* contains this struct */	\
+#define EV_COMMON				\
+  int flags; /* cheap on 64 bit systems */	\
+  SV *self; /* contains this struct */		\
   SV *cb_sv, *fh, *data;
 
 #ifndef EV_PROTOTYPES
@@ -29,7 +30,7 @@ struct EVAPI {
   I32 ver;
   I32 rev;
 #define EV_API_VERSION 1
-#define EV_API_REVISION 0
+#define EV_API_REVISION 1
 
   /* perl fh or fd int to fd */
   int (*sv_fileno) (SV *fh);
@@ -39,7 +40,7 @@ struct EVAPI {
   /* same as libev functions */
   ev_tstamp (*now)(void);
   ev_tstamp (*(time))(void);
-  unsigned int (*method)(void);
+  unsigned int (*backend)(void);
   void (*loop)(int flags);
   void (*unloop)(int how);
   void (*once)(int fd, int events, ev_tstamp timeout, void (*cb)(int revents, void *arg), void *arg);
@@ -60,6 +61,8 @@ struct EVAPI {
   void (*check_stop) (struct ev_check *);
   void (*child_start)(struct ev_child *);
   void (*child_stop) (struct ev_child *);
+  void (*ref)(void);
+  void (*unref)(void);
 };
 
 #if !EV_PROTOTYPES
@@ -67,9 +70,9 @@ struct EVAPI {
 # define sv_signum(sv)         GEVAPI->sv_signum (sv)
 # define ev_now()              GEVAPI->now ()
 # define ev_time()             GEVAPI->(time) ()
-# define ev_method()           GEVAPI->method ()
+# define ev_backend()          GEVAPI->backend ()
 # define ev_loop(flags)        GEVAPI->loop (flags)
-# define ev_unloop()           GEVAPI->unloop (int how)
+# define ev_unloop(how)        GEVAPI->unloop (how)
 # define ev_once(fd,events,timeout,cb,arg) GEVAPI->once ((fd), (events), (timeout), (cb), (arg))
 # define ev_io_start(w)        GEVAPI->io_start (w)
 # define ev_io_stop(w)         GEVAPI->io_stop  (w)
@@ -88,6 +91,8 @@ struct EVAPI {
 # define ev_check_stop(w)      GEVAPI->check_stop  (w)
 # define ev_child_start(w)     GEVAPI->child_start (w)
 # define ev_child_stop(w)      GEVAPI->child_stop  (w)
+# define ev_ref()              GEVAPI->ref   ()
+# define ev_unref()            GEVAPI->unref ()
 #endif
 
 static struct EVAPI *GEVAPI;

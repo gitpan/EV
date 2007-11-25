@@ -42,12 +42,7 @@ kqueue_change (EV_P_ int fd, int filter, int flags, int fflags)
   ++kqueue_changecnt;
   array_needsize (struct kevent, kqueue_changes, kqueue_changemax, kqueue_changecnt, EMPTY2);
 
-  ke = &kqueue_changes [kqueue_changecnt - 1];
-  memset (ke, 0, sizeof (struct kevent));
-  ke->ident  = fd;
-  ke->filter = filter;
-  ke->flags  = flags;
-  ke->fflags = fflags;
+  EV_SET (&kqueue_changes [kqueue_changecnt - 1], fd, filter, flags, fflags, 0, 0);
 }
 
 #ifndef NOTE_EOF
@@ -57,17 +52,20 @@ kqueue_change (EV_P_ int fd, int filter, int flags, int fflags)
 static void
 kqueue_modify (EV_P_ int fd, int oev, int nev)
 {
-  /* to detect close/reopen reliably, we have to remove and re-add */
+  if (oev != nev)
+    {
+      if (oev & EV_READ)
+        kqueue_change (EV_A_ fd, EVFILT_READ , EV_DELETE, 0);
+
+      if (oev & EV_WRITE)
+        kqueue_change (EV_A_ fd, EVFILT_WRITE, EV_DELETE, 0);
+    }
+
+  /* to detect close/reopen reliably, we have to re-add */
   /* event requests even when oev == nev */
 
-  if (oev & EV_READ)
-    kqueue_change (EV_A_ fd, EVFILT_READ, EV_DELETE, 0);
-
-  if (oev & EV_WRITE)
-    kqueue_change (EV_A_ fd, EVFILT_WRITE, EV_DELETE, 0);
-
   if (nev & EV_READ)
-    kqueue_change (EV_A_ fd, EVFILT_READ, EV_ADD, NOTE_EOF);
+    kqueue_change (EV_A_ fd, EVFILT_READ , EV_ADD, NOTE_EOF);
 
   if (nev & EV_WRITE)
     kqueue_change (EV_A_ fd, EVFILT_WRITE, EV_ADD, NOTE_EOF);
@@ -88,8 +86,8 @@ kqueue_poll (EV_P_ ev_tstamp timeout)
     }
 
   ts.tv_sec  = (time_t)timeout;
-  ts.tv_nsec = (long)(timeout - (ev_tstamp)ts.tv_sec) * 1e9;
-  res = kevent (kqueue_fd, kqueue_changes, kqueue_changecnt, kqueue_events, kqueue_eventmax, &ts);
+  ts.tv_nsec = (long)((timeout - (ev_tstamp)ts.tv_sec) * 1e9);
+  res = kevent (backend_fd, kqueue_changes, kqueue_changecnt, kqueue_events, kqueue_eventmax, &ts);
   kqueue_changecnt = 0;
 
   if (res < 0)
@@ -104,7 +102,7 @@ kqueue_poll (EV_P_ ev_tstamp timeout)
     {
       int fd = kqueue_events [i].ident;
 
-      if (kqueue_events [i].flags & EV_ERROR)
+      if (expect_false (kqueue_events [i].flags & EV_ERROR))
         {
 	  int err = kqueue_events [i].data;
 
@@ -158,10 +156,10 @@ kqueue_init (EV_P_ int flags)
   struct kevent ch, ev;
 
   /* Initalize the kernel queue */
-  if ((kqueue_fd = kqueue ()) < 0)
+  if ((backend_fd = kqueue ()) < 0)
     return 0;
 
-  fcntl (kqueue_fd, F_SETFD, FD_CLOEXEC); /* not sure if necessary, hopefully doesn't hurt */
+  fcntl (backend_fd, F_SETFD, FD_CLOEXEC); /* not sure if necessary, hopefully doesn't hurt */
 
   /* Check for Mac OS X kqueue bug. */
   ch.ident  = -1;
@@ -173,18 +171,18 @@ kqueue_init (EV_P_ int flags)
    * stick an error in ev. If kqueue is broken, then
    * kevent will fail.
    */
-  if (kevent (kqueue_fd, &ch, 1, &ev, 1, 0) != 1
+  if (kevent (backend_fd, &ch, 1, &ev, 1, 0) != 1
       || ev.ident != -1
       || ev.flags != EV_ERROR)
     {
       /* detected broken kqueue */
-      close (kqueue_fd);
+      close (backend_fd);
       return 0;
     }
 
-  method_fudge  = 1e-3; /* needed to compensate for kevent returning early */
-  method_modify = kqueue_modify;
-  method_poll   = kqueue_poll;
+  backend_fudge  = 1e-3; /* needed to compensate for kevent returning early */
+  backend_modify = kqueue_modify;
+  backend_poll   = kqueue_poll;
 
   kqueue_eventmax = 64; /* intiial number of events receivable per poll */
   kqueue_events = (struct kevent *)ev_malloc (sizeof (struct kevent) * kqueue_eventmax);
@@ -193,13 +191,13 @@ kqueue_init (EV_P_ int flags)
   kqueue_changemax = 0;
   kqueue_changecnt = 0;
 
-  return EVMETHOD_KQUEUE;
+  return EVBACKEND_KQUEUE;
 }
 
 static void
 kqueue_destroy (EV_P)
 {
-  close (kqueue_fd);
+  close (backend_fd);
 
   ev_free (kqueue_events);
   ev_free (kqueue_changes);
@@ -208,12 +206,12 @@ kqueue_destroy (EV_P)
 static void
 kqueue_fork (EV_P)
 {
-  close (kqueue_fd);
+  close (backend_fd);
 
-  while ((kqueue_fd = kqueue ()) < 0)
+  while ((backend_fd = kqueue ()) < 0)
     syserr ("(libev) kqueue");
 
-  fcntl (kqueue_fd, F_SETFD, FD_CLOEXEC);
+  fcntl (backend_fd, F_SETFD, FD_CLOEXEC);
 
   /* re-register interest in fds */
   fd_rearm_all (EV_A);

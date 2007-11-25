@@ -1,14 +1,14 @@
 Signal		T_SIGNAL
 
-struct ev_watcher *	T_WATCHER
-struct ev_io *		T_WATCHER
-struct ev_timer *	T_WATCHER
-struct ev_periodic *	T_WATCHER
-struct ev_signal *	T_WATCHER
-struct ev_idle *	T_WATCHER
-struct ev_prepare *	T_WATCHER
-struct ev_check *	T_WATCHER
-struct ev_child *	T_WATCHER
+ev_watcher *	T_WATCHER
+ev_io *		T_WATCHER
+ev_timer *	T_WATCHER
+ev_periodic *	T_WATCHER
+ev_signal *	T_WATCHER
+ev_idle *	T_WATCHER
+ev_prepare *	T_WATCHER
+ev_check *	T_WATCHER
+ev_child *	T_WATCHER
 
 char *		T_PVbyte
 const char *	T_PVbyte

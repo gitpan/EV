@@ -13,6 +13,8 @@ EV/MakeMaker.pm
 
 t/00_load.t
 t/01_timer.t
+t/02_once.t
+t/03_keepalive.t
 
 libev/LICENSE
 libev/README

@@ -203,9 +203,9 @@ select_poll (EV_P_ ev_tstamp timeout)
 static int
 select_init (EV_P_ int flags)
 {
-  method_fudge  = 1e-2; /* needed to compensate for select returning early, very conservative */
-  method_modify = select_modify;
-  method_poll   = select_poll;
+  backend_fudge  = 1e-2; /* needed to compensate for select returning early, very conservative */
+  backend_modify = select_modify;
+  backend_poll   = select_poll;
 
 #if EV_SELECT_USE_FD_SET
   vec_max = FD_SETSIZE / 32;
@@ -221,7 +221,7 @@ select_init (EV_P_ int flags)
   vec_wo  = 0; 
 #endif
 
-  return EVMETHOD_SELECT;
+  return EVBACKEND_SELECT;
 }
 
 static void

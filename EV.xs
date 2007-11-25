@@ -37,6 +37,30 @@
 # include <pthread.h>
 #endif
 
+#define WFLAG_KEEPALIVE 1
+
+#define UNREF(w)				\
+  if (!((w)->flags & WFLAG_KEEPALIVE)		\
+      && !ev_is_active (w))			\
+    ev_unref ();
+
+#define REF(w)					\
+  if (!((w)->flags & WFLAG_KEEPALIVE)		\
+      && ev_is_active (w))			\
+    ev_ref ();
+
+#define START(type,w)				\
+  do {						\
+    UNREF (w);					\
+    ev_ ## type ## _start (w);			\
+  } while (0)
+
+#define STOP(type,w)				\
+  do {						\
+    REF (w);					\
+    ev_ ## type ## _stop (w);			\
+  } while (0)
+
 typedef int Signal;
 
 static struct EVAPI evapi;
@@ -78,7 +102,7 @@ sv_signum (SV *sig)
 /////////////////////////////////////////////////////////////////////////////
 // Event
 
-static void e_cb (struct ev_watcher *w, int revents);
+static void e_cb (ev_watcher *w, int revents);
 
 static int
 sv_fileno (SV *fh)
@@ -91,7 +115,7 @@ sv_fileno (SV *fh)
   if (SvTYPE (fh) == SVt_PVGV)
     return PerlIO_fileno (IoIFP (sv_2io (fh)));
 
-  if ((SvIV (fh) >= 0) && (SvIV (fh) < 0x7ffffff))
+  if (SvOK (fh) && (SvIV (fh) >= 0) && (SvIV (fh) < 0x7fffffffL))
     return SvIV (fh);
 
   return -1;
@@ -100,15 +124,16 @@ sv_fileno (SV *fh)
 static void *
 e_new (int size, SV *cb_sv)
 {
-  struct ev_watcher *w;
+  ev_watcher *w;
   SV *self = NEWSV (0, size);
   SvPOK_only (self);
   SvCUR_set (self, size);
 
-  w = (struct ev_watcher *)SvPVX (self);
+  w = (ev_watcher *)SvPVX (self);
 
   ev_init (w, e_cb);
 
+  w->flags = WFLAG_KEEPALIVE;
   w->data  = 0;
   w->fh    = 0;
   w->cb_sv = newSVsv (cb_sv);
@@ -120,7 +145,7 @@ e_new (int size, SV *cb_sv)
 static void
 e_destroy (void *w_)
 {
-  struct ev_watcher *w = (struct ev_watcher *)w_;
+  ev_watcher *w = (ev_watcher *)w_;
 
   SvREFCNT_dec (w->fh   ); w->fh    = 0;
   SvREFCNT_dec (w->cb_sv); w->cb_sv = 0;
@@ -128,7 +153,7 @@ e_destroy (void *w_)
 }
 
 static SV *
-e_bless (struct ev_watcher *w, HV *stash)
+e_bless (ev_watcher *w, HV *stash)
 {
   SV *rv;
 
@@ -144,13 +169,14 @@ e_bless (struct ev_watcher *w, HV *stash)
   return rv;
 }
 
+static SV *sv_events_cache;
+
 static void
-e_cb (struct ev_watcher *w, int revents)
+e_cb (ev_watcher *w, int revents)
 {
   dSP;
   I32 mark = SP - PL_stack_base;
-  SV *sv_self, *sv_events, *sv_status = 0;
-  static SV *sv_events_cache;
+  SV *sv_self, *sv_events;
 
   sv_self = newRV_inc (w->self); /* w->self MUST be blessed by now */
 
@@ -171,7 +197,45 @@ e_cb (struct ev_watcher *w, int revents)
   call_sv (w->cb_sv, G_DISCARD | G_VOID | G_EVAL);
 
   SvREFCNT_dec (sv_self);
-  SvREFCNT_dec (sv_status);
+
+  if (sv_events_cache)
+    SvREFCNT_dec (sv_events);
+  else
+    sv_events_cache = sv_events;
+
+  if (SvTRUE (ERRSV))
+    {
+      PUSHMARK (SP);
+      PUTBACK;
+      call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
+    }
+
+  SP = PL_stack_base + mark;
+  PUTBACK;
+}
+
+static void
+e_once_cb (int revents, void *arg)
+{
+  dSP;
+  I32 mark = SP - PL_stack_base;
+  SV *sv_events;
+
+  if (sv_events_cache)
+    {
+      sv_events = sv_events_cache; sv_events_cache = 0;
+      SvIV_set (sv_events, revents);
+    }
+  else
+    sv_events = newSViv (revents);
+
+  PUSHMARK (SP);
+  XPUSHs (sv_events);
+
+  PUTBACK;
+  call_sv ((SV *)arg, G_DISCARD | G_VOID | G_EVAL);
+
+  SvREFCNT_dec ((SV *)arg);
 
   if (sv_events_cache)
     SvREFCNT_dec (sv_events);
@@ -190,7 +254,7 @@ e_cb (struct ev_watcher *w, int revents)
 }
 
 static ev_tstamp
-e_periodic_cb (struct ev_periodic *w, ev_tstamp now)
+e_periodic_cb (ev_periodic *w, ev_tstamp now)
 {
   ev_tstamp retval;
   int count;
@@ -326,12 +390,12 @@ BOOT:
     const_iv (EV, UNLOOP_ONE)
     const_iv (EV, UNLOOP_ALL)
 
-    const_iv (EV, METHOD_SELECT)
-    const_iv (EV, METHOD_POLL)
-    const_iv (EV, METHOD_EPOLL)
-    const_iv (EV, METHOD_KQUEUE)
-    const_iv (EV, METHOD_DEVPOLL)
-    const_iv (EV, METHOD_PORT)
+    const_iv (EV, BACKEND_SELECT)
+    const_iv (EV, BACKEND_POLL)
+    const_iv (EV, BACKEND_EPOLL)
+    const_iv (EV, BACKEND_KQUEUE)
+    const_iv (EV, BACKEND_DEVPOLL)
+    const_iv (EV, BACKEND_PORT)
     const_iv (EV, FLAG_AUTO)
     const_iv (EV, FLAG_NOENV)
   };
@@ -340,7 +404,7 @@ BOOT:
     newCONSTSUB (stash, (char *)civ->name, newSViv (civ->iv));
 
   stash_watcher  = gv_stashpv ("EV::Watcher" , 1);
-  stash_io       = gv_stashpv ("EV::Io"      , 1);
+  stash_io       = gv_stashpv ("EV::IO"      , 1);
   stash_timer    = gv_stashpv ("EV::Timer"   , 1);
   stash_periodic = gv_stashpv ("EV::Periodic", 1);
   stash_signal   = gv_stashpv ("EV::Signal"  , 1);
@@ -359,7 +423,7 @@ BOOT:
     evapi.sv_fileno      = sv_fileno;
     evapi.sv_signum      = sv_signum;
     evapi.now            = ev_now;
-    evapi.method         = ev_method;
+    evapi.backend        = ev_backend;
     evapi.unloop         = ev_unloop;
     evapi.time           = ev_time;
     evapi.loop           = ev_loop;
@@ -381,6 +445,8 @@ BOOT:
     evapi.check_stop     = ev_check_stop;
     evapi.child_start    = ev_child_start;
     evapi.child_stop     = ev_child_stop;
+    evapi.ref            = ev_ref;
+    evapi.unref          = ev_unref;
 
     sv_setiv (sv, (IV)&evapi);
     SvREADONLY_on (sv);
@@ -392,17 +458,17 @@ BOOT:
 
 NV ev_now ()
 
-int ev_method ()
+unsigned int ev_backend ()
 
 NV ev_time ()
 
-int ev_default_loop (int methods = EVFLAG_AUTO)
+unsigned int ev_default_loop (unsigned int flags = ev_supported_backends ())
 
 void ev_loop (int flags = 0)
 
 void ev_unloop (int how = 1)
 
-struct ev_io *io (SV *fh, int events, SV *cb)
+ev_io *io (SV *fh, int events, SV *cb)
 	ALIAS:
         io_ns = 1
 	CODE:
@@ -410,23 +476,23 @@ struct ev_io *io (SV *fh, int events, SV *cb)
 	int fd = sv_fileno (fh);
         CHECK_FD (fh, fd);
 
-        RETVAL = e_new (sizeof (struct ev_io), cb);
+        RETVAL = e_new (sizeof (ev_io), cb);
         RETVAL->fh = newSVsv (fh);
         ev_io_set (RETVAL, fd, events);
-        if (!ix) ev_io_start (RETVAL);
+        if (!ix) START (io, RETVAL);
 }
 	OUTPUT:
         RETVAL
 
-struct ev_timer *timer (NV after, NV repeat, SV *cb)
+ev_timer *timer (NV after, NV repeat, SV *cb)
 	ALIAS:
         timer_ns = 1
         INIT:
         CHECK_REPEAT (repeat);
 	CODE:
-        RETVAL = e_new (sizeof (struct ev_timer), cb);
+        RETVAL = e_new (sizeof (ev_timer), cb);
         ev_timer_set (RETVAL, after, repeat);
-        if (!ix) ev_timer_start (RETVAL);
+        if (!ix) START (timer, RETVAL);
 	OUTPUT:
         RETVAL
 
@@ -437,74 +503,100 @@ SV *periodic (NV at, NV interval, SV *reschedule_cb, SV *cb)
         CHECK_REPEAT (interval);
 	CODE:
 {
-  	struct ev_periodic *w;
-        w = e_new (sizeof (struct ev_periodic), cb);
+  	ev_periodic *w;
+        w = e_new (sizeof (ev_periodic), cb);
         w->fh = SvTRUE (reschedule_cb) ? newSVsv (reschedule_cb) : 0;
         ev_periodic_set (w, at, interval, w->fh ? e_periodic_cb : 0);
-        RETVAL = e_bless ((struct ev_watcher *)w, stash_periodic);
-        if (!ix) ev_periodic_start (w);
+        RETVAL = e_bless ((ev_watcher *)w, stash_periodic);
+        if (!ix) START (periodic, w);
 }
 	OUTPUT:
         RETVAL
 
-struct ev_signal *signal (Signal signum, SV *cb)
+ev_signal *signal (Signal signum, SV *cb)
 	ALIAS:
         signal_ns = 1
 	CODE:
-        RETVAL = e_new (sizeof (struct ev_signal), cb);
+        RETVAL = e_new (sizeof (ev_signal), cb);
         ev_signal_set (RETVAL, signum);
-        if (!ix) ev_signal_start (RETVAL);
+        if (!ix) START (signal, RETVAL);
 	OUTPUT:
         RETVAL
 
-struct ev_idle *idle (SV *cb)
+ev_idle *idle (SV *cb)
 	ALIAS:
         idle_ns = 1
 	CODE:
-        RETVAL = e_new (sizeof (struct ev_idle), cb);
+        RETVAL = e_new (sizeof (ev_idle), cb);
         ev_idle_set (RETVAL);
-        if (!ix) ev_idle_start (RETVAL);
+        if (!ix) START (idle, RETVAL);
 	OUTPUT:
         RETVAL
 
-struct ev_prepare *prepare (SV *cb)
+ev_prepare *prepare (SV *cb)
 	ALIAS:
         prepare_ns = 1
 	CODE:
-        RETVAL = e_new (sizeof (struct ev_prepare), cb);
+        RETVAL = e_new (sizeof (ev_prepare), cb);
         ev_prepare_set (RETVAL);
-        if (!ix) ev_prepare_start (RETVAL);
+        if (!ix) START (prepare, RETVAL);
 	OUTPUT:
         RETVAL
 
-struct ev_check *check (SV *cb)
+ev_check *check (SV *cb)
 	ALIAS:
         check_ns = 1
 	CODE:
-        RETVAL = e_new (sizeof (struct ev_check), cb);
+        RETVAL = e_new (sizeof (ev_check), cb);
         ev_check_set (RETVAL);
-        if (!ix) ev_check_start (RETVAL);
+        if (!ix) START (check, RETVAL);
 	OUTPUT:
         RETVAL
 
-struct ev_child *child (int pid, SV *cb)
+ev_child *child (int pid, SV *cb)
 	ALIAS:
         child_ns = 1
 	CODE:
-        RETVAL = e_new (sizeof (struct ev_child), cb);
+        RETVAL = e_new (sizeof (ev_child), cb);
         ev_child_set (RETVAL, pid);
-        if (!ix) ev_child_start (RETVAL);
+        if (!ix) START (child, RETVAL);
 	OUTPUT:
         RETVAL
 
+void once (SV *fh, int events, SV *timeout, SV *cb)
+	CODE:
+        ev_once (
+           sv_fileno (fh), events,
+           SvOK (timeout) ? SvNV (timeout) : -1.,
+           e_once_cb,
+           newSVsv (cb)
+        );
 
 PROTOTYPES: DISABLE
 
 MODULE = EV		PACKAGE = EV::Watcher	PREFIX = ev_
 
-int ev_is_active (struct ev_watcher *w)
+int ev_is_active (ev_watcher *w)
 
-SV *cb (struct ev_watcher *w, SV *new_cb = 0)
+int ev_is_pending (ev_watcher *w)
+
+int keepalive (ev_watcher *w, int new_value = 0)
+	CODE:
+{
+        RETVAL = w->flags & WFLAG_KEEPALIVE;
+        new_value = new_value ? WFLAG_KEEPALIVE : 0;
+
+        if (items > 1 && ((new_value ^ w->flags) & WFLAG_KEEPALIVE))
+          {
+            REF (w);
+            w->flags = (w->flags & ~WFLAG_KEEPALIVE) | new_value;
+            UNREF (w);
+          }
+}
+	OUTPUT:
+        RETVAL
+
+SV *cb (ev_watcher *w, SV *new_cb = 0)
 	CODE:
 {
         RETVAL = newSVsv (w->cb_sv);
@@ -515,19 +607,25 @@ SV *cb (struct ev_watcher *w, SV *new_cb = 0)
 	OUTPUT:
         RETVAL
 
-SV *data (struct ev_watcher *w, SV *new_data = 0)
+SV *data (ev_watcher *w, SV *new_data = 0)
 	CODE:
 {
 	RETVAL = w->data ? newSVsv (w->data) : &PL_sv_undef;
+
+        if (items > 1)
+          {
+            SvREFCNT_dec (w->data);
+            w->data = newSVsv (new_data);
+          }
 }
 	OUTPUT:
         RETVAL
 
-void trigger (struct ev_watcher *w, int revents = EV_NONE)
+void trigger (ev_watcher *w, int revents = EV_NONE)
 	CODE:
         w->cb (w, revents);
 
-int priority (struct ev_watcher *w, int new_priority = 0)
+int priority (ev_watcher *w, int new_priority = 0)
 	CODE:
 {
         RETVAL = w->priority;
@@ -560,33 +658,37 @@ int priority (struct ev_watcher *w, int new_priority = 0)
 	OUTPUT:
         RETVAL
 
-MODULE = EV		PACKAGE = EV::Io	PREFIX = ev_io_
+MODULE = EV		PACKAGE = EV::IO	PREFIX = ev_io_
 
-void ev_io_start (struct ev_io *w)
-
-void ev_io_stop (struct ev_io *w)
-
-void DESTROY (struct ev_io *w)
+void ev_io_start (ev_io *w)
 	CODE:
-        ev_io_stop (w);
+        START (io, w);
+
+void ev_io_stop (ev_io *w)
+	CODE:
+        STOP (io, w);
+
+void DESTROY (ev_io *w)
+	CODE:
+        STOP (io, w);
         e_destroy (w);
 
-void set (struct ev_io *w, SV *fh, int events)
+void set (ev_io *w, SV *fh, int events)
 	CODE:
 {
         int active = ev_is_active (w);
 	int fd = sv_fileno (fh);
         CHECK_FD (fh, fd);
 
-        if (active) ev_io_stop (w);
+        if (active) STOP (io, w);
 
         sv_setsv (w->fh, fh);
         ev_io_set (w, fd, events);
 
-        if (active) ev_io_start (w);
+        if (active) START (io, w);
 }
 
-SV *fh (struct ev_io *w, SV *new_fh = 0)
+SV *fh (ev_io *w, SV *new_fh = 0)
 	CODE:
 {
         RETVAL = newSVsv (w->fh);
@@ -594,18 +696,18 @@ SV *fh (struct ev_io *w, SV *new_fh = 0)
         if (items > 1)
           {
             int active = ev_is_active (w);
-            if (active) ev_io_stop (w);
+            if (active) STOP (io, w);
 
             sv_setsv (w->fh, new_fh);
             ev_io_set (w, sv_fileno (w->fh), w->events);
 
-            if (active) ev_io_start (w);
+            if (active) START (io, w);
           }
 }
 	OUTPUT:
         RETVAL
 
-int events (struct ev_io *w, int new_events = EV_UNDEF)
+int events (ev_io *w, int new_events = EV_UNDEF)
 	CODE:
 {
         RETVAL = w->events;
@@ -613,11 +715,11 @@ int events (struct ev_io *w, int new_events = EV_UNDEF)
         if (items > 1)
           {
             int active = ev_is_active (w);
-            if (active) ev_io_stop (w);
+            if (active) STOP (io, w);
 
             ev_io_set (w, w->fd, new_events);
 
-            if (active) ev_io_start (w);
+            if (active) START (io, w);
           }
 }
 	OUTPUT:
@@ -625,29 +727,33 @@ int events (struct ev_io *w, int new_events = EV_UNDEF)
 
 MODULE = EV		PACKAGE = EV::Signal	PREFIX = ev_signal_
 
-void ev_signal_start (struct ev_signal *w)
-
-void ev_signal_stop (struct ev_signal *w)
-
-void DESTROY (struct ev_signal *w)
+void ev_signal_start (ev_signal *w)
 	CODE:
-        ev_signal_stop (w);
+        START (signal, w);
+
+void ev_signal_stop (ev_signal *w)
+	CODE:
+        STOP (signal, w);
+
+void DESTROY (ev_signal *w)
+	CODE:
+        STOP (signal, w);
         e_destroy (w);
 
-void set (struct ev_signal *w, SV *signal)
+void set (ev_signal *w, SV *signal)
 	CODE:
 {
 	Signal signum = sv_signum (signal); /* may croak here */
         int active = ev_is_active (w);
 
-        if (active) ev_signal_stop (w);
+        if (active) STOP (signal, w);
 
         ev_signal_set (w, signum);
 
-        if (active) ev_signal_start (w);
+        if (active) START (signal, w);
 }
 
-int signal (struct ev_signal *w, SV *new_signal = 0)
+int signal (ev_signal *w, SV *new_signal = 0)
 	CODE:
 {
         RETVAL = w->signum;
@@ -656,11 +762,11 @@ int signal (struct ev_signal *w, SV *new_signal = 0)
           {
             Signal signum = sv_signum (new_signal); /* may croak here */
             int active = ev_is_active (w);
-            if (active) ev_signal_stop (w);
+            if (active) STOP (signal, w);
 
             ev_signal_set (w, signum);
 
-            if (active) ev_signal_start (w);
+            if (active) START (signal, w);
           }
 }
 	OUTPUT:
@@ -668,118 +774,150 @@ int signal (struct ev_signal *w, SV *new_signal = 0)
 
 MODULE = EV		PACKAGE = EV::Timer	PREFIX = ev_timer_
 
-void ev_timer_start (struct ev_timer *w)
+void ev_timer_start (ev_timer *w)
         INIT:
         CHECK_REPEAT (w->repeat);
-
-void ev_timer_stop (struct ev_timer *w)
-
-void ev_timer_again (struct ev_timer *w)
-        INIT:
-        CHECK_REPEAT (w->repeat);
-
-void DESTROY (struct ev_timer *w)
 	CODE:
-        ev_timer_stop (w);
+        START (timer, w);
+
+void ev_timer_stop (ev_timer *w)
+	CODE:
+        STOP (timer, w);
+
+void ev_timer_again (ev_timer *w)
+        INIT:
+        CHECK_REPEAT (w->repeat);
+        CODE:
+        REF (w);
+        ev_timer_again (w);
+        UNREF (w);
+
+void DESTROY (ev_timer *w)
+	CODE:
+        STOP (timer, w);
         e_destroy (w);
 
-void set (struct ev_timer *w, NV after, NV repeat = 0.)
+void set (ev_timer *w, NV after, NV repeat = 0.)
         INIT:
         CHECK_REPEAT (repeat);
 	CODE:
 {
         int active = ev_is_active (w);
-        if (active) ev_timer_stop (w);
+        if (active) STOP (timer, w);
         ev_timer_set (w, after, repeat);
-        if (active) ev_timer_start (w);
+        if (active) START (timer, w);
 }
 
 MODULE = EV		PACKAGE = EV::Periodic	PREFIX = ev_periodic_
 
-void ev_periodic_start (struct ev_periodic *w)
+void ev_periodic_start (ev_periodic *w)
         INIT:
         CHECK_REPEAT (w->interval);
-
-void ev_periodic_stop (struct ev_periodic *w)
-
-void ev_periodic_again (struct ev_periodic *w)
-
-void DESTROY (struct ev_periodic *w)
 	CODE:
-        ev_periodic_stop (w);
+        START (periodic, w);
+
+void ev_periodic_stop (ev_periodic *w)
+	CODE:
+        STOP (periodic, w);
+
+void ev_periodic_again (ev_periodic *w)
+	CODE:
+        REF (w);
+        ev_periodic_again (w);
+        UNREF (w);
+
+void DESTROY (ev_periodic *w)
+	CODE:
+        STOP (periodic, w);
         e_destroy (w);
 
-void set (struct ev_periodic *w, NV at, NV interval = 0., SV *reschedule_cb = &PL_sv_undef)
+void set (ev_periodic *w, NV at, NV interval = 0., SV *reschedule_cb = &PL_sv_undef)
         INIT:
         CHECK_REPEAT (interval);
 	CODE:
 {
         int active = ev_is_active (w);
-        if (active) ev_periodic_stop (w);
+        if (active) STOP (periodic, w);
 
         SvREFCNT_dec (w->fh);
         w->fh = SvTRUE (reschedule_cb) ? newSVsv (reschedule_cb) : 0;
         ev_periodic_set (w, at, interval, w->fh ? e_periodic_cb : 0);
 
-        if (active) ev_periodic_start (w);
+        if (active) START (periodic, w);
 }
 
 MODULE = EV		PACKAGE = EV::Idle	PREFIX = ev_idle_
 
-void ev_idle_start (struct ev_idle *w)
-
-void ev_idle_stop (struct ev_idle *w)
-
-void DESTROY (struct ev_idle *w)
+void ev_idle_start (ev_idle *w)
 	CODE:
-        ev_idle_stop (w);
+        START (idle, w);
+
+void ev_idle_stop (ev_idle *w)
+	CODE:
+        STOP (idle, w);
+
+void DESTROY (ev_idle *w)
+	CODE:
+        STOP (idle, w);
         e_destroy (w);
 
 MODULE = EV		PACKAGE = EV::Prepare	PREFIX = ev_check_
 
-void ev_prepare_start (struct ev_prepare *w)
-
-void ev_prepare_stop (struct ev_prepare *w)
-
-void DESTROY (struct ev_prepare *w)
+void ev_prepare_start (ev_prepare *w)
 	CODE:
-        ev_prepare_stop (w);
+        START (prepare, w);
+
+void ev_prepare_stop (ev_prepare *w)
+	CODE:
+        STOP (prepare, w);
+
+void DESTROY (ev_prepare *w)
+	CODE:
+        STOP (prepare, w);
         e_destroy (w);
 
 MODULE = EV		PACKAGE = EV::Check	PREFIX = ev_check_
 
-void ev_check_start (struct ev_check *w)
-
-void ev_check_stop (struct ev_check *w)
-
-void DESTROY (struct ev_check *w)
+void ev_check_start (ev_check *w)
 	CODE:
-        ev_check_stop (w);
+        START (check, w);
+
+void ev_check_stop (ev_check *w)
+	CODE:
+        STOP (check, w);
+
+void DESTROY (ev_check *w)
+	CODE:
+        STOP (check, w);
         e_destroy (w);
 
 MODULE = EV		PACKAGE = EV::Child	PREFIX = ev_child_
 
-void ev_child_start (struct ev_child *w)
-
-void ev_child_stop (struct ev_child *w)
-
-void DESTROY (struct ev_child *w)
+void ev_child_start (ev_child *w)
 	CODE:
-        ev_child_stop (w);
+        START (child, w);
+
+void ev_child_stop (ev_child *w)
+	CODE:
+        STOP (child, w);
+
+void DESTROY (ev_child *w)
+	CODE:
+        STOP (child, w);
         e_destroy (w);
 
-void set (struct ev_child *w, int pid)
+void set (ev_child *w, int pid)
 	CODE:
 {
         int active = ev_is_active (w);
-        if (active) ev_child_stop (w);
+        if (active) STOP (child, w);
 
         ev_child_set (w, pid);
 
-        if (active) ev_child_start (w);
+        if (active) START (child, w);
 }
 
-int pid (struct ev_child *w, int new_pid = 0)
+int pid (ev_child *w, int new_pid = 0)
 	CODE:
 {
         RETVAL = w->pid;
@@ -787,18 +925,18 @@ int pid (struct ev_child *w, int new_pid = 0)
         if (items > 1)
           {
             int active = ev_is_active (w);
-            if (active) ev_child_stop (w);
+            if (active) STOP (child, w);
 
             ev_child_set (w, new_pid);
 
-            if (active) ev_child_start (w);
+            if (active) START (child, w);
           }
 }
 	OUTPUT:
         RETVAL
 
 
-int rstatus (struct ev_child *w)
+int rstatus (ev_child *w)
 	ALIAS:
         rpid = 1
 	CODE:
