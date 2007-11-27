@@ -29,8 +29,8 @@
 struct EVAPI {
   I32 ver;
   I32 rev;
-#define EV_API_VERSION 1
-#define EV_API_REVISION 1
+#define EV_API_VERSION 2
+#define EV_API_REVISION 0
 
   /* perl fh or fd int to fd */
   int (*sv_fileno) (SV *fh);
@@ -43,6 +43,8 @@ struct EVAPI {
   unsigned int (*backend)(void);
   void (*loop)(int flags);
   void (*unloop)(int how);
+  void (*ref)(void);
+  void (*unref)(void);
   void (*once)(int fd, int events, ev_tstamp timeout, void (*cb)(int revents, void *arg), void *arg);
   void (*io_start)(struct ev_io *);
   void (*io_stop) (struct ev_io *);
@@ -53,16 +55,20 @@ struct EVAPI {
   void (*periodic_stop) (struct ev_periodic *);
   void (*signal_start)(struct ev_signal *);
   void (*signal_stop) (struct ev_signal *);
+  void (*child_start)(struct ev_child *);
+  void (*child_stop) (struct ev_child *);
+  void (*stat_start)(struct ev_stat *);
+  void (*stat_stop) (struct ev_stat *);
+  void (*stat_stat) (struct ev_stat *);
   void (*idle_start)(struct ev_idle *);
   void (*idle_stop) (struct ev_idle *);
   void (*prepare_start)(struct ev_prepare *);
   void (*prepare_stop) (struct ev_prepare *);
   void (*check_start)(struct ev_check *);
   void (*check_stop) (struct ev_check *);
-  void (*child_start)(struct ev_child *);
-  void (*child_stop) (struct ev_child *);
-  void (*ref)(void);
-  void (*unref)(void);
+  void *embed_start_dummy;
+  void *embed_stop_dummy;
+  void *embed_sweep_dummy;
 };
 
 #if !EV_PROTOTYPES
@@ -91,6 +97,9 @@ struct EVAPI {
 # define ev_check_stop(w)      GEVAPI->check_stop  (w)
 # define ev_child_start(w)     GEVAPI->child_start (w)
 # define ev_child_stop(w)      GEVAPI->child_stop  (w)
+# define ev_stat_start(w)      GEVAPI->stat_start (w)
+# define ev_stat_stop(w)       GEVAPI->stat_stop  (w)
+# define ev_stat_stat(w)       GEVAPI->stat_stat  (w)
 # define ev_ref()              GEVAPI->ref   ()
 # define ev_unref()            GEVAPI->unref ()
 #endif

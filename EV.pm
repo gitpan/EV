@@ -41,6 +41,12 @@ EV - perl interface to libev, a high performance full-featured event loop
      my ($w, $revents) = @_;
      my $status = $w->rstatus;
   };
+
+  # STAT CHANGES
+  my $w = EV::stat "/etc/passwd", 10, sub {
+     my ($w, $revents) = @_;
+     warn $w->path, " has changed somehow.\n";
+  };
   
   # MAINLOOP
   EV::loop;           # loop until EV::unloop is called or all watchers stop
@@ -63,7 +69,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '1.3';
+   our $VERSION = '1.4';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -72,10 +78,14 @@ BEGIN {
 @EV::Timer::ISA    =
 @EV::Periodic::ISA =
 @EV::Signal::ISA   =
+@EV::Child::ISA    =
+@EV::Stat::ISA     =
 @EV::Idle::ISA     =
 @EV::Prepare::ISA  =
 @EV::Check::ISA    =
-@EV::Child::ISA    = "EV::Watcher";
+@EV::Embed::ISA    =
+@EV::Fork::ISA     =
+   "EV::Watcher";
 
 =head1 BASIC INTERFACE
 
@@ -148,7 +158,7 @@ invoked.
 
 =back
 
-=head2 WATCHER
+=head2 WATCHER OBJECTS
 
 A watcher is an object that gets created to record your interest in some
 event. For instance, if you want to wait for STDIN to become readable, you
@@ -183,14 +193,9 @@ Also, all methods changing some aspect of a watcher (->set, ->priority,
 ->fh and so on) automatically stop and start it again if it is active,
 which means pending events get lost.
 
-=head2 WATCHER TYPES
+=head2 COMMON WATCHER METHODS
 
-Now lets move to the existing watcher types and asociated methods.
-
-The following methods are available for all watchers. Then followes a
-description of each watcher constructor (EV::io, EV::timer, EV::periodic,
-EV::signal, EV::child, EV::idle, EV::prepare and EV::check), followed by
-any type-specific methods (if any).
+This section lists methods common to all watchers.
 
 =over 4
 
@@ -276,12 +281,23 @@ event loop from running just because of that watcher.
    my $udp_watcher = EV::io $udp_socket, EV::READ, sub { ... };
    $udp_watcher->keepalive (0);
 
+=back
+
+
+=head2 WATCHER TYPES
+
+Each of the following subsections describes a single watcher type.
+
+=head3 IO WATCHERS - is this file descriptor readable or writable?
+
+=over 4
+
 =item $w = EV::io $fileno_or_fh, $eventmask, $callback
 
 =item $w = EV::io_ns $fileno_or_fh, $eventmask, $callback
 
 As long as the returned watcher object is alive, call the C<$callback>
-when the events specified in C<$eventmask>.
+when at least one of events specified in C<$eventmask> occurs.
 
 The $eventmask can be one or more of these constants ORed together:
 
@@ -307,6 +323,12 @@ Returns the previously set filehandle and optionally set a new one.
 
 Returns the previously set event mask and optionally set a new one.
 
+=back
+
+
+=head3 TIMER WATCHERS - relative and optionally repeating timeouts
+
+=over 4
 
 =item $w = EV::timer $after, $repeat, $callback
 
@@ -330,7 +352,7 @@ The C<timer_ns> variant doesn't start (activate) the newly created watcher.
 
 =item $w->set ($after, $repeat)
 
-Reconfigures the watcher, see the constructor above for details. Can be at
+Reconfigures the watcher, see the constructor above for details. Can be called at
 any time.
 
 =item $w->again
@@ -351,6 +373,12 @@ operation. You create a timer object with the same value for C<$after> and
 C<$repeat>, and then, in the read/write watcher, run the C<again> method
 on the timeout.
 
+=back
+
+
+=head3 PERIODIC WATCHERS - to cron or not to cron?
+
+=over 4
 
 =item $w = EV::periodic $at, $interval, $reschedule_cb, $callback
 
@@ -432,25 +460,31 @@ The C<periodic_ns> variant doesn't start (activate) the newly created watcher.
 
 =item $w->set ($at, $interval, $reschedule_cb)
 
-Reconfigures the watcher, see the constructor above for details. Can be at
+Reconfigures the watcher, see the constructor above for details. Can be called at
 any time.
 
 =item $w->again
 
 Simply stops and starts the watcher again.
 
+=back
+
+
+=head3 SIGNAL WATCHERS - signal me when a signal gets signalled!
+
+=over 4
 
 =item $w = EV::signal $signal, $callback
 
 =item $w = EV::signal_ns $signal, $callback
 
-Call the callback when $signal is received (the signal can be specified
-by number or by name, just as with kill or %SIG).
+Call the callback when $signal is received (the signal can be specified by
+number or by name, just as with C<kill> or C<%SIG>).
 
 EV will grab the signal for the process (the kernel only allows one
 component to receive a signal at a time) when you start a signal watcher,
 and removes it again when you stop it. Perl does the same when you
-add/remove callbacks to %SIG, so watch out.
+add/remove callbacks to C<%SIG>, so watch out.
 
 You can have as many signal watchers per signal as you want.
 
@@ -458,8 +492,8 @@ The C<signal_ns> variant doesn't start (activate) the newly created watcher.
 
 =item $w->set ($signal)
 
-Reconfigures the watcher, see the constructor above for details. Can be at
-any time.
+Reconfigures the watcher, see the constructor above for details. Can be
+called at any time.
 
 =item $current_signum = $w->signal
 
@@ -468,26 +502,38 @@ any time.
 Returns the previously set signal (always as a number not name) and
 optionally set a new one.
 
+=back
+
+
+=head3 CHILD WATCHERS - watch out for process status changes
+
+=over 4
 
 =item $w = EV::child $pid, $callback
 
 =item $w = EV::child_ns $pid, $callback
 
-Call the callback when a status change for pid C<$pid> (or any pid
-if C<$pid> is 0) has been received. More precisely: when the process
-receives a SIGCHLD, EV will fetch the outstanding exit/wait status for all
+Call the callback when a status change for pid C<$pid> (or any pid if
+C<$pid> is 0) has been received. More precisely: when the process receives
+a C<SIGCHLD>, EV will fetch the outstanding exit/wait status for all
 changed/zombie children and call the callback.
 
-You can access both status and pid by using the C<rstatus> and C<rpid>
-methods on the watcher object.
+It is valid (and fully supported) to install a child watcher after a child
+has exited but before the event loop has started its next iteration (for
+example, first you C<fork>, then the new child process might exit, and
+only then do you install a child watcher in the parent for the new pid).
 
-You can have as many pid watchers per pid as you want.
+You can access both exit (or tracing) status and pid by using the
+C<rstatus> and C<rpid> methods on the watcher object.
+
+You can have as many pid watchers per pid as you want, they will all be
+called.
 
 The C<child_ns> variant doesn't start (activate) the newly created watcher.
 
 =item $w->set ($pid)
 
-Reconfigures the watcher, see the constructor above for details. Can be at
+Reconfigures the watcher, see the constructor above for details. Can be called at
 any time.
 
 =item $current_pid = $w->pid
@@ -506,6 +552,56 @@ in perlfunc).
 Return the pid of the awaited child (useful when you have installed a
 watcher for all pids).
 
+=back
+
+
+=head3 STAT WATCHERS - did the file attributes just change?
+
+=over 4
+
+=item $w = EV::stat $path, $interval, $callback
+
+=item $w = EV::stat_ns $path, $interval, $callback
+
+Call the callback when a file status change has been detected on
+C<$path>. The C<$path> does not need to exist, changing from "path exists"
+to "path does not exist" is a status change like any other.
+
+The C<$interval> is a recommended polling interval for systems where
+OS-supported change notifications don't exist or are not supported. If
+you use C<0> then an unspecified default is used (which is highly
+recommended!), which is to be expected to be around five seconds usually.
+
+This watcher type is not meant for massive numbers of stat watchers,
+as even with OS-supported change notifications, this can be
+resource-intensive.
+
+The C<stat_ns> variant doesn't start (activate) the newly created watcher.
+
+=item $w->set ($path, $interval)
+
+Reconfigures the watcher, see the constructor above for details. Can be
+called at any time.
+
+=item $current_path = $w->path
+
+=item $old_path = $w->path ($new_path)
+
+Returns the previously set path and optionally set a new one.
+
+=item $current_interval = $w->interval
+
+=item $old_interval = $w->interval ($new_interval)
+
+Returns the previously set interval and optionally set a new one. Can be
+used to query the actual interval used.
+
+=back
+
+
+=head3 IDLE WATCHERS - when you've got nothing better to do...
+
+=over 4
 
 =item $w = EV::idle $callback
 
@@ -519,6 +615,12 @@ they will be called repeatedly until stopped.
 
 The C<idle_ns> variant doesn't start (activate) the newly created watcher.
 
+=back
+
+
+=head3 PREPARE WATCHERS - customise your event loop!
+
+=over 4
 
 =item $w = EV::prepare $callback
 
@@ -531,6 +633,12 @@ See the EV::check watcher, below, for explanations and an example.
 
 The C<prepare_ns> variant doesn't start (activate) the newly created watcher.
 
+=back
+
+
+=head3 CHECK WATCHERS - customise your event loop even more!
+
+=over 4
 
 =item $w = EV::check $callback
 
@@ -586,6 +694,27 @@ The C<check_ns> variant doesn't start (activate) the newly created watcher.
 
 =back
 
+
+=head3 FORK WATCHERS - the audacity to resume the event loop after a fork
+
+Fork watchers are called when a C<fork ()> was detected. The invocation
+is done before the event loop blocks next and before C<check> watchers
+are being called, and only in the child after the fork.
+
+=over 4
+
+=item $w = EV::fork $callback
+
+=item $w = EV::fork_ns $callback
+
+Call the callback before the event loop is resumed in the child process
+after a fork.
+
+The C<fork_ns> variant doesn't start (activate) the newly created watcher.
+
+=back
+
+
 =head1 THREADS
 
 Threads are not supported by this module in any way. Perl pseudo-threads
@@ -622,7 +751,7 @@ default_loop
 
 =head1 SEE ALSO
 
-  L<EV::DNS>.
+L<EV::DNS>.
 
 =head1 AUTHOR
 

@@ -40,6 +40,12 @@ SYNOPSIS
          my ($w, $revents) = @_;
          my $status = $w->rstatus;
       };
+
+      # STAT CHANGES
+      my $w = EV::stat "/etc/passwd", 10, sub {
+         my ($w, $revents) = @_;
+         warn $w->path, " has changed somehow.\n";
+      };
   
       # MAINLOOP
       EV::loop;           # loop until EV::unloop is called or all watchers stop
@@ -113,7 +119,7 @@ BASIC INTERFACE
         either of them triggers, then they will be stopped and freed, and
         the callback invoked.
 
-  WATCHER
+  WATCHER OBJECTS
     A watcher is an object that gets created to record your interest in some
     event. For instance, if you want to wait for STDIN to become readable,
     you would create an EV::io watcher for that:
@@ -147,13 +153,8 @@ BASIC INTERFACE
     ->fh and so on) automatically stop and start it again if it is active,
     which means pending events get lost.
 
-  WATCHER TYPES
-    Now lets move to the existing watcher types and asociated methods.
-
-    The following methods are available for all watchers. Then followes a
-    description of each watcher constructor (EV::io, EV::timer,
-    EV::periodic, EV::signal, EV::child, EV::idle, EV::prepare and
-    EV::check), followed by any type-specific methods (if any).
+  COMMON WATCHER METHODS
+    This section lists methods common to all watchers.
 
     $w->start
         Starts a watcher if it isn't active already. Does nothing to an
@@ -231,10 +232,14 @@ BASIC INTERFACE
            my $udp_watcher = EV::io $udp_socket, EV::READ, sub { ... };
            $udp_watcher->keepalive (0);
 
+  WATCHER TYPES
+    Each of the following subsections describes a single watcher type.
+
+   IO WATCHERS - is this file descriptor readable or writable?
     $w = EV::io $fileno_or_fh, $eventmask, $callback
     $w = EV::io_ns $fileno_or_fh, $eventmask, $callback
         As long as the returned watcher object is alive, call the $callback
-        when the events specified in $eventmask.
+        when at least one of events specified in $eventmask occurs.
 
         The $eventmask can be one or more of these constants ORed together:
 
@@ -256,6 +261,7 @@ BASIC INTERFACE
     $old_eventmask = $w->events ($new_eventmask)
         Returns the previously set event mask and optionally set a new one.
 
+   TIMER WATCHERS - relative and optionally repeating timeouts
     $w = EV::timer $after, $repeat, $callback
     $w = EV::timer_ns $after, $repeat, $callback
         Calls the callback after $after seconds (which may be fractional).
@@ -279,7 +285,7 @@ BASIC INTERFACE
 
     $w->set ($after, $repeat)
         Reconfigures the watcher, see the constructor above for details. Can
-        be at any time.
+        be called at any time.
 
     $w->again
         Similar to the "start" method, but has special semantics for
@@ -300,6 +306,7 @@ BASIC INTERFACE
         and $repeat, and then, in the read/write watcher, run the "again"
         method on the timeout.
 
+   PERIODIC WATCHERS - to cron or not to cron?
     $w = EV::periodic $at, $interval, $reschedule_cb, $callback
     $w = EV::periodic_ns $at, $interval, $reschedule_cb, $callback
         Similar to EV::timer, but is not based on relative timeouts but on
@@ -374,15 +381,16 @@ BASIC INTERFACE
 
     $w->set ($at, $interval, $reschedule_cb)
         Reconfigures the watcher, see the constructor above for details. Can
-        be at any time.
+        be called at any time.
 
     $w->again
         Simply stops and starts the watcher again.
 
+   SIGNAL WATCHERS - signal me when a signal gets signalled!
     $w = EV::signal $signal, $callback
     $w = EV::signal_ns $signal, $callback
         Call the callback when $signal is received (the signal can be
-        specified by number or by name, just as with kill or %SIG).
+        specified by number or by name, just as with "kill" or %SIG).
 
         EV will grab the signal for the process (the kernel only allows one
         component to receive a signal at a time) when you start a signal
@@ -396,31 +404,39 @@ BASIC INTERFACE
 
     $w->set ($signal)
         Reconfigures the watcher, see the constructor above for details. Can
-        be at any time.
+        be called at any time.
 
     $current_signum = $w->signal
     $old_signum = $w->signal ($new_signal)
         Returns the previously set signal (always as a number not name) and
         optionally set a new one.
 
+   CHILD WATCHERS - watch out for process status changes
     $w = EV::child $pid, $callback
     $w = EV::child_ns $pid, $callback
         Call the callback when a status change for pid $pid (or any pid if
         $pid is 0) has been received. More precisely: when the process
-        receives a SIGCHLD, EV will fetch the outstanding exit/wait status
+        receives a "SIGCHLD", EV will fetch the outstanding exit/wait status
         for all changed/zombie children and call the callback.
 
-        You can access both status and pid by using the "rstatus" and "rpid"
-        methods on the watcher object.
+        It is valid (and fully supported) to install a child watcher after a
+        child has exited but before the event loop has started its next
+        iteration (for example, first you "fork", then the new child process
+        might exit, and only then do you install a child watcher in the
+        parent for the new pid).
 
-        You can have as many pid watchers per pid as you want.
+        You can access both exit (or tracing) status and pid by using the
+        "rstatus" and "rpid" methods on the watcher object.
+
+        You can have as many pid watchers per pid as you want, they will all
+        be called.
 
         The "child_ns" variant doesn't start (activate) the newly created
         watcher.
 
     $w->set ($pid)
         Reconfigures the watcher, see the constructor above for details. Can
-        be at any time.
+        be called at any time.
 
     $current_pid = $w->pid
     $old_pid = $w->pid ($new_pid)
@@ -434,6 +450,40 @@ BASIC INTERFACE
         Return the pid of the awaited child (useful when you have installed
         a watcher for all pids).
 
+   STAT WATCHERS - did the file attributes just change?
+    $w = EV::stat $path, $interval, $callback
+    $w = EV::stat_ns $path, $interval, $callback
+        Call the callback when a file status change has been detected on
+        $path. The $path does not need to exist, changing from "path exists"
+        to "path does not exist" is a status change like any other.
+
+        The $interval is a recommended polling interval for systems where
+        OS-supported change notifications don't exist or are not supported.
+        If you use 0 then an unspecified default is used (which is highly
+        recommended!), which is to be expected to be around five seconds
+        usually.
+
+        This watcher type is not meant for massive numbers of stat watchers,
+        as even with OS-supported change notifications, this can be
+        resource-intensive.
+
+        The "stat_ns" variant doesn't start (activate) the newly created
+        watcher.
+
+    $w->set ($path, $interval)
+        Reconfigures the watcher, see the constructor above for details. Can
+        be called at any time.
+
+    $current_path = $w->path
+    $old_path = $w->path ($new_path)
+        Returns the previously set path and optionally set a new one.
+
+    $current_interval = $w->interval
+    $old_interval = $w->interval ($new_interval)
+        Returns the previously set interval and optionally set a new one.
+        Can be used to query the actual interval used.
+
+   IDLE WATCHERS - when you've got nothing better to do...
     $w = EV::idle $callback
     $w = EV::idle_ns $callback
         Call the callback when there are no pending io, timer/periodic,
@@ -445,6 +495,7 @@ BASIC INTERFACE
         The "idle_ns" variant doesn't start (activate) the newly created
         watcher.
 
+   PREPARE WATCHERS - customise your event loop!
     $w = EV::prepare $callback
     $w = EV::prepare_ns $callback
         Call the callback just before the process would block. You can still
@@ -455,6 +506,7 @@ BASIC INTERFACE
         The "prepare_ns" variant doesn't start (activate) the newly created
         watcher.
 
+   CHECK WATCHERS - customise your event loop even more!
     $w = EV::check $callback
     $w = EV::check_ns $callback
         Call the callback just after the process wakes up again (after it
@@ -508,6 +560,19 @@ BASIC INTERFACE
         The "check_ns" variant doesn't start (activate) the newly created
         watcher.
 
+   FORK WATCHERS - the audacity to resume the event loop after a fork
+    Fork watchers are called when a "fork ()" was detected. The invocation
+    is done before the event loop blocks next and before "check" watchers
+    are being called, and only in the child after the fork.
+
+    $w = EV::fork $callback
+    $w = EV::fork_ns $callback
+        Call the callback before the event loop is resumed in the child
+        process after a fork.
+
+        The "fork_ns" variant doesn't start (activate) the newly created
+        watcher.
+
 THREADS
     Threads are not supported by this module in any way. Perl pseudo-threads
     is evil stuff and must die. As soon as Perl gains real threads I will
@@ -531,7 +596,7 @@ FORK
     course.
 
 SEE ALSO
-      L<EV::DNS>.
+    EV::DNS.
 
 AUTHOR
      Marc Lehmann <schmorp@schmorp.de>

@@ -9,6 +9,8 @@ ev_idle *	T_WATCHER
 ev_prepare *	T_WATCHER
 ev_check *	T_WATCHER
 ev_child *	T_WATCHER
+ev_embed *	T_WATCHER
+ev_stat *	T_WATCHER
 
 char *		T_PVbyte
 const char *	T_PVbyte

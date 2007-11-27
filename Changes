@@ -1,5 +1,14 @@
 Revision history for Perl extension EV
 
+1.4  Tue Nov 27 17:35:27 CET 2007
+	- work around a linux 2.4 kernel bug in child handlers.
+        - implement stat watcher interface.
+        - implement fork watcher interface.
+        - io->set did not keep the fh alive.
+        - actively check signal numbers/names to be valid.
+        - cleanups, minor fixes, new bugs.
+        - work around windows bugs in the testsuite.
+
 1.3  Sun Nov 25 10:46:57 CET 2007
 	- stopping idle/check/prepare watchers could cause data corruption.
 	- implement and document EV::once.

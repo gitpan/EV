@@ -92,6 +92,8 @@ init;
 
 =head1 SEE ALSO
 
+L<EV>, have a look at adnshost, too, which is nice to pipe in and out of :)
+
 =head1 AUTHOR
 
  Marc Lehmann <schmorp@schmorp.de>

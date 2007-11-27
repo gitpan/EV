@@ -61,6 +61,14 @@
     ev_ ## type ## _stop (w);			\
   } while (0)
 
+#define RESET(type,w,seta)			\
+ do {                                           \
+   int active = ev_is_active (w);               \
+   if (active) STOP (type, w);                  \
+   ev_ ## type ## _set seta;                    \
+   if (active) START (type, w);                 \
+ } while (0)
+
 typedef int Signal;
 
 static struct EVAPI evapi;
@@ -71,10 +79,13 @@ static HV
   *stash_timer,
   *stash_periodic,
   *stash_signal,
+  *stash_child,
+  *stash_stat,
   *stash_idle,
   *stash_prepare,
   *stash_check,
-  *stash_child;
+  *stash_embed,
+  *stash_fork;
 
 #ifndef SIG_SIZE
 /* kudos to Slaven Rezic for the idea */
@@ -82,10 +93,10 @@ static char sig_size [] = { SIG_NUM };
 # define SIG_SIZE (sizeof (sig_size) + 1)
 #endif
 
-static int
+static Signal
 sv_signum (SV *sig)
 {
-  int signum;
+  Signal signum;
 
   SvGETMAGIC (sig);
 
@@ -93,8 +104,10 @@ sv_signum (SV *sig)
     if (strEQ (SvPV_nolen (sig), PL_sig_name [signum]))
       return signum;
 
-  if (SvIV (sig) > 0)
-    return SvIV (sig);
+  signum = SvIV (sig);
+
+  if (signum > 0 && signum < SIG_SIZE)
+    return signum;
 
   return -1;
 }
@@ -356,6 +369,9 @@ dns_cb (int result, char type, int count, int ttl, void *addresses, void *arg)
 #define CHECK_FD(fh,fd) if ((fd) < 0) \
   croak ("illegal file descriptor or filehandle (either no attached file descriptor or illegal value): %s", SvPV_nolen (fh));
 
+#define CHECK_SIG(sv,num) if ((num) < 0) \
+  croak ("illegal signal number or name: %s", SvPV_nolen (sv));
+
 /////////////////////////////////////////////////////////////////////////////
 // XS interface functions
 
@@ -412,6 +428,8 @@ BOOT:
   stash_prepare  = gv_stashpv ("EV::Prepare" , 1);
   stash_check    = gv_stashpv ("EV::Check"   , 1);
   stash_child    = gv_stashpv ("EV::Child"   , 1);
+  stash_embed    = gv_stashpv ("EV::Embed"   , 1);
+  stash_stat     = gv_stashpv ("EV::Stat"    , 1);
 
   {
     SV *sv = perl_get_sv ("EV::API", TRUE);
@@ -425,6 +443,8 @@ BOOT:
     evapi.now            = ev_now;
     evapi.backend        = ev_backend;
     evapi.unloop         = ev_unloop;
+    evapi.ref            = ev_ref;
+    evapi.unref          = ev_unref;
     evapi.time           = ev_time;
     evapi.loop           = ev_loop;
     evapi.once           = ev_once;
@@ -445,8 +465,9 @@ BOOT:
     evapi.check_stop     = ev_check_stop;
     evapi.child_start    = ev_child_start;
     evapi.child_stop     = ev_child_stop;
-    evapi.ref            = ev_ref;
-    evapi.unref          = ev_unref;
+    evapi.stat_start     = ev_stat_start;
+    evapi.stat_stop      = ev_stat_stop;
+    evapi.stat_stat      = ev_stat_stat;
 
     sv_setiv (sv, (IV)&evapi);
     SvREADONLY_on (sv);
@@ -513,13 +534,18 @@ SV *periodic (NV at, NV interval, SV *reschedule_cb, SV *cb)
 	OUTPUT:
         RETVAL
 
-ev_signal *signal (Signal signum, SV *cb)
+ev_signal *signal (SV *signal, SV *cb)
 	ALIAS:
         signal_ns = 1
 	CODE:
+{
+  	Signal signum = sv_signum (signal);
+        CHECK_SIG (signal, signum);
+
         RETVAL = e_new (sizeof (ev_signal), cb);
         ev_signal_set (RETVAL, signum);
         if (!ix) START (signal, RETVAL);
+}
 	OUTPUT:
         RETVAL
 
@@ -560,6 +586,17 @@ ev_child *child (int pid, SV *cb)
         RETVAL = e_new (sizeof (ev_child), cb);
         ev_child_set (RETVAL, pid);
         if (!ix) START (child, RETVAL);
+	OUTPUT:
+        RETVAL
+
+ev_stat *stat (SV *path, NV interval, SV *cb)
+	ALIAS:
+        stat_ns = 1
+	CODE:
+        RETVAL = e_new (sizeof (ev_stat), cb);
+        RETVAL->fh = newSVsv (path);
+        ev_stat_set (RETVAL, SvPVbyte_nolen (RETVAL->fh), interval);
+        if (!ix) START (stat, RETVAL);
 	OUTPUT:
         RETVAL
 
@@ -676,33 +713,28 @@ void DESTROY (ev_io *w)
 void set (ev_io *w, SV *fh, int events)
 	CODE:
 {
-        int active = ev_is_active (w);
 	int fd = sv_fileno (fh);
         CHECK_FD (fh, fd);
 
-        if (active) STOP (io, w);
-
         sv_setsv (w->fh, fh);
-        ev_io_set (w, fd, events);
-
-        if (active) START (io, w);
+        RESET (io, w, (w, fd, events));
 }
 
 SV *fh (ev_io *w, SV *new_fh = 0)
 	CODE:
 {
-        RETVAL = newSVsv (w->fh);
-
         if (items > 1)
           {
-            int active = ev_is_active (w);
-            if (active) STOP (io, w);
+            int fd = sv_fileno (new_fh);
+            CHECK_FD (new_fh, fd);
 
-            sv_setsv (w->fh, new_fh);
-            ev_io_set (w, sv_fileno (w->fh), w->events);
+            RETVAL = w->fh;
+            w->fh = newSVsv (new_fh);
 
-            if (active) START (io, w);
+            RESET (io, w, (w, fd, w->events));
           }
+        else
+          RETVAL = newSVsv (w->fh);
 }
 	OUTPUT:
         RETVAL
@@ -713,14 +745,7 @@ int events (ev_io *w, int new_events = EV_UNDEF)
         RETVAL = w->events;
 
         if (items > 1)
-          {
-            int active = ev_is_active (w);
-            if (active) STOP (io, w);
-
-            ev_io_set (w, w->fd, new_events);
-
-            if (active) START (io, w);
-          }
+          RESET (io, w, (w, w->fd, new_events));
 }
 	OUTPUT:
         RETVAL
@@ -743,14 +768,10 @@ void DESTROY (ev_signal *w)
 void set (ev_signal *w, SV *signal)
 	CODE:
 {
-	Signal signum = sv_signum (signal); /* may croak here */
-        int active = ev_is_active (w);
+	Signal signum = sv_signum (signal);
+        CHECK_SIG (signal, signum);
 
-        if (active) STOP (signal, w);
-
-        ev_signal_set (w, signum);
-
-        if (active) START (signal, w);
+        RESET (signal, w, (w, signum));
 }
 
 int signal (ev_signal *w, SV *new_signal = 0)
@@ -760,13 +781,10 @@ int signal (ev_signal *w, SV *new_signal = 0)
 
         if (items > 1)
           {
-            Signal signum = sv_signum (new_signal); /* may croak here */
-            int active = ev_is_active (w);
-            if (active) STOP (signal, w);
+            Signal signum = sv_signum (new_signal);
+            CHECK_SIG (new_signal, signum);
 
-            ev_signal_set (w, signum);
-
-            if (active) START (signal, w);
+            RESET (signal, w, (w, signum));
           }
 }
 	OUTPUT:
@@ -801,12 +819,7 @@ void set (ev_timer *w, NV after, NV repeat = 0.)
         INIT:
         CHECK_REPEAT (repeat);
 	CODE:
-{
-        int active = ev_is_active (w);
-        if (active) STOP (timer, w);
-        ev_timer_set (w, after, repeat);
-        if (active) START (timer, w);
-}
+        RESET (timer, w, (w, after, repeat));
 
 MODULE = EV		PACKAGE = EV::Periodic	PREFIX = ev_periodic_
 
@@ -836,14 +849,10 @@ void set (ev_periodic *w, NV at, NV interval = 0., SV *reschedule_cb = &PL_sv_un
         CHECK_REPEAT (interval);
 	CODE:
 {
-        int active = ev_is_active (w);
-        if (active) STOP (periodic, w);
-
         SvREFCNT_dec (w->fh);
         w->fh = SvTRUE (reschedule_cb) ? newSVsv (reschedule_cb) : 0;
-        ev_periodic_set (w, at, interval, w->fh ? e_periodic_cb : 0);
 
-        if (active) START (periodic, w);
+        RESET (periodic, w, (w, at, interval, w->fh ? e_periodic_cb : 0));
 }
 
 MODULE = EV		PACKAGE = EV::Idle	PREFIX = ev_idle_
@@ -908,14 +917,7 @@ void DESTROY (ev_child *w)
 
 void set (ev_child *w, int pid)
 	CODE:
-{
-        int active = ev_is_active (w);
-        if (active) STOP (child, w);
-
-        ev_child_set (w, pid);
-
-        if (active) START (child, w);
-}
+        RESET (child, w, (w, pid));
 
 int pid (ev_child *w, int new_pid = 0)
 	CODE:
@@ -923,14 +925,7 @@ int pid (ev_child *w, int new_pid = 0)
         RETVAL = w->pid;
 
         if (items > 1)
-          {
-            int active = ev_is_active (w);
-            if (active) STOP (child, w);
-
-            ev_child_set (w, new_pid);
-
-            if (active) START (child, w);
-          }
+          RESET (child, w, (w, new_pid));
 }
 	OUTPUT:
         RETVAL
@@ -941,6 +936,54 @@ int rstatus (ev_child *w)
         rpid = 1
 	CODE:
         RETVAL = ix ? w->rpid : w->rstatus;
+	OUTPUT:
+        RETVAL
+
+MODULE = EV		PACKAGE = EV::Stat	PREFIX = ev_stat_
+
+void ev_stat_start (ev_stat *w)
+	CODE:
+        START (stat, w);
+
+void ev_stat_stop (ev_stat *w)
+	CODE:
+        STOP (stat, w);
+
+void DESTROY (ev_stat *w)
+	CODE:
+        STOP (stat, w);
+        e_destroy (w);
+
+void set (ev_stat *w, SV *path, NV interval)
+	CODE:
+{
+        sv_setsv (w->fh, path);
+	RESET (stat, w, (w, SvPVbyte_nolen (w->fh), interval));
+}
+
+SV *path (ev_stat *w, SV *new_path = 0)
+	CODE:
+{
+        RETVAL = SvREFCNT_inc (w->fh);
+
+        if (items > 1)
+          {
+            SvREFCNT_dec (w->fh);
+            w->fh = newSVsv (new_path);
+            RESET (stat, w, (w, SvPVbyte_nolen (w->fh), w->interval));
+          }
+}
+	OUTPUT:
+        RETVAL
+
+NV interval (ev_stat *w, NV new_interval = 0.)
+	CODE:
+{
+        RETVAL = w->interval;
+
+        if (items > 1)
+          RESET (stat, w, (w, SvPVbyte_nolen (w->fh), new_interval));
+}
 	OUTPUT:
         RETVAL
 

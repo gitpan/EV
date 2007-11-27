@@ -2,6 +2,7 @@ BEGIN { $| = 1; print "1..6\n"; }
 
 no warnings;
 use strict;
+use Socket;
 
 use EV;
 
@@ -11,7 +12,9 @@ for my $i (3..5) {
    };
 }
 
-EV::once 1, EV::WRITE, 0.5, sub {
+socketpair my $s1, my $s2, AF_UNIX, SOCK_STREAM, PF_UNSPEC;
+
+EV::once $s1, EV::WRITE, 0.5, sub {
    print $_[0] == EV::WRITE ? "" : "not ", "ok 2\n";
 };
 
