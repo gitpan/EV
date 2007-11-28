@@ -1,5 +1,11 @@
 Revision history for Perl extension EV
 
+1.5  Wed Nov 28 20:19:09 CET 2007
+	- add inotify backend.
+        - make testsuite even less sensible to timing issues,
+          add more stat tests.
+        - add ->attr, ->prev, ->stat calls to stat watcher.
+
 1.4  Tue Nov 27 17:35:27 CET 2007
 	- work around a linux 2.4 kernel bug in child handlers.
         - implement stat watcher interface.

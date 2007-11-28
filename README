@@ -470,6 +470,42 @@ BASIC INTERFACE
         The "stat_ns" variant doesn't start (activate) the newly created
         watcher.
 
+    ... = $w->stat
+        This call is very similar to the perl "stat" built-in: It stats
+        (using "lstat") the path specified in the watcher and sets perls
+        stat cache (as well as EV's idea of the current stat values) to the
+        values found.
+
+        In scalar context, a boolean is return indicating success or failure
+        of the stat. In list context, the same 13-value list as with stat is
+        returned (except that the blksize and blocks fields are not
+        reliable).
+
+        In the case of an error, errno is set to "ENOENT" (regardless of the
+        actual error value) and the "nlink" value is forced to zero (if the
+        stat was successful then nlink is guaranteed to be non-zero).
+
+        See also the next two entries for more info.
+
+    ... = $w->attr
+        Just like "$w->stat", but without the initial stat'ing: this returns
+        the values most recently detected by EV. See the next entry for more
+        info.
+
+    ... = $w->prev
+        Just like "$w->stat", but without the initial stat'ing: this returns
+        the previous set of values, before the change.
+
+        That is, when the watcher callback is invoked, "$w->prev" will be
+        set to the values found *before* a change was detected, while
+        "$w->attr" returns the values found leading to the change detection.
+        The difference (if any) between "prev" and "attr" is what triggered
+        the callback.
+
+        If you did something to the filesystem object and do not want to
+        trigger yet another change, you can call "stat" to update EV's idea
+        of what the current attributes are.
+
     $w->set ($path, $interval)
         Reconfigures the watcher, see the constructor above for details. Can
         be called at any time.

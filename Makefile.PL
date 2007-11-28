@@ -161,12 +161,12 @@ print <<EOF;
 
 
 Similarly to the kqueue backend above, EV can take advantage of the
-solaris 10 port interface. Support for port will be detected at runtime,
-with a safe fallback to other methods when it cannot be used.
+solaris 10 event port interface. Support for event ports will be detected
+at runtime, with a safe fallback to other methods when it cannot be used.
 
 EOF
 
-$DEFINE .= " -DEV_USE_PORT=" . (0 + (prompt ("Enable port backend (y/n)?", (-e "/usr/include/sys/port.h") ? "y" : "n") =~ /[yY]/));
+$DEFINE .= " -DEV_USE_PORT=" . (0 + (prompt ("Enable event port backend (y/n)?", (-e "/usr/include/sys/port.h") ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 
@@ -184,6 +184,21 @@ $SOLARIS_LIBS = $^O =~ /solaris/ ? " -lsocket -lnsl" : "";
 
 $LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "-lpthread -lrt$SOLARIS_LIBS";
 
+
+print <<EOF;
+
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
+
+A backend of a different kind is the Linux inotify(7) interface, which can
+be used to speed up (and reduce resource consumption) of stat watchers. If
+you have it, it is usually a good idea to enable it.
+
+EOF
+
+my $can_inotify = -e "/usr/include/sys/inotify.h";
+
+$DEFINE .= " -DEV_USE_INOTIFY=" . (0 + (prompt ("Enable inotify support (y/n)?", $can_inotify ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 

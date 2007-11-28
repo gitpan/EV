@@ -69,7 +69,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '1.4';
+   our $VERSION = '1.5';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -577,6 +577,41 @@ as even with OS-supported change notifications, this can be
 resource-intensive.
 
 The C<stat_ns> variant doesn't start (activate) the newly created watcher.
+
+=item ... = $w->stat
+
+This call is very similar to the perl C<stat> built-in: It stats (using
+C<lstat>) the path specified in the watcher and sets perls stat cache (as
+well as EV's idea of the current stat values) to the values found.
+
+In scalar context, a boolean is return indicating success or failure of
+the stat. In list context, the same 13-value list as with stat is returned
+(except that the blksize and blocks fields are not reliable).
+
+In the case of an error, errno is set to C<ENOENT> (regardless of the
+actual error value) and the C<nlink> value is forced to zero (if the stat
+was successful then nlink is guaranteed to be non-zero).
+
+See also the next two entries for more info.
+
+=item ... = $w->attr
+
+Just like C<< $w->stat >>, but without the initial stat'ing: this returns
+the values most recently detected by EV. See the next entry for more info.
+
+=item ... = $w->prev
+
+Just like C<< $w->stat >>, but without the initial stat'ing: this returns
+the previous set of values, before the change.
+
+That is, when the watcher callback is invoked, C<< $w->prev >> will be set
+to the values found I<before> a change was detected, while C<< $w->attr >>
+returns the values found leading to the change detection. The difference (if any)
+between C<prev> and C<attr> is what triggered the callback.
+
+If you did something to the filesystem object and do not want to trigger
+yet another change, you can call C<stat> to update EV's idea of what the
+current attributes are.
 
 =item $w->set ($path, $interval)
 

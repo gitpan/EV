@@ -15,7 +15,7 @@ for my $i (3..5) {
 socketpair my $s1, my $s2, AF_UNIX, SOCK_STREAM, PF_UNSPEC;
 
 EV::once $s1, EV::WRITE, 0.5, sub {
-   print $_[0] == EV::WRITE ? "" : "not ", "ok 2\n";
+   print $_[0] & EV::WRITE ? "" : "not ", "ok 2\n";
 };
 
 print "ok 1\n";

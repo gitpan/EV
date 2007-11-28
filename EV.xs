@@ -987,6 +987,52 @@ NV interval (ev_stat *w, NV new_interval = 0.)
 	OUTPUT:
         RETVAL
 
+void prev (ev_stat *w)
+	ALIAS:
+        stat = 1
+        attr = 2
+	PPCODE:
+{
+	ev_statdata *s = ix ? &w->attr : &w->prev;
+
+        if (ix == 1)
+          ev_stat_stat (w);
+        else if (!s->st_nlink)
+          errno = ENOENT;
+
+        PL_statcache.st_dev   = s->st_nlink;
+        PL_statcache.st_ino   = s->st_ino;
+        PL_statcache.st_mode  = s->st_mode;
+        PL_statcache.st_nlink = s->st_nlink;
+        PL_statcache.st_uid   = s->st_uid;
+        PL_statcache.st_gid   = s->st_gid;
+        PL_statcache.st_rdev  = s->st_rdev;
+        PL_statcache.st_size  = s->st_size;
+        PL_statcache.st_atime = s->st_atime;
+        PL_statcache.st_mtime = s->st_mtime;
+        PL_statcache.st_ctime = s->st_ctime;
+
+        if (GIMME_V == G_SCALAR)
+          XPUSHs (boolSV (s->st_nlink));
+        else if (GIMME_V == G_ARRAY && s->st_nlink)
+          {
+            EXTEND (SP, 13);
+            PUSHs (sv_2mortal (newSViv (s->st_dev)));
+            PUSHs (sv_2mortal (newSViv (s->st_ino)));
+            PUSHs (sv_2mortal (newSVuv (s->st_mode)));
+            PUSHs (sv_2mortal (newSVuv (s->st_nlink)));
+            PUSHs (sv_2mortal (newSViv (s->st_uid)));
+            PUSHs (sv_2mortal (newSViv (s->st_gid)));
+            PUSHs (sv_2mortal (newSViv (s->st_rdev)));
+            PUSHs (sv_2mortal (newSVnv ((NV)s->st_size)));
+            PUSHs (sv_2mortal (newSVnv (s->st_atime)));
+            PUSHs (sv_2mortal (newSVnv (s->st_mtime)));
+            PUSHs (sv_2mortal (newSVnv (s->st_ctime)));
+            PUSHs (sv_2mortal (newSVuv (4096)));
+            PUSHs (sv_2mortal (newSVnv ((NV)((s->st_size + 4095) / 4096))));
+          }
+}
+
 #ifndef _WIN32
 
 MODULE = EV		PACKAGE = EV::DNS	PREFIX = evdns_
