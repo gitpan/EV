@@ -1,5 +1,12 @@
 Revision history for Perl extension EV
 
+1.6  Wed Dec  5 15:06:20 CET 2007
+	- add a missing SPAGAIN.
+        - ripped out EV::DNS, use EV::ADNS for a better backend.
+        - make ev_time callable from EVAPI.h.
+        - add EV::loop_count.
+        - some space optimisations.
+
 1.5  Wed Nov 28 20:19:09 CET 2007
 	- add inotify backend.
         - make testsuite even less sensible to timing issues,

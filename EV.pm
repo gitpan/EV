@@ -69,7 +69,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '1.5';
+   our $VERSION = '1.6';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -132,6 +132,11 @@ innermost call to EV::loop return.
 
 When called with an argument of EV::UNLOOP_ALL, all calls to EV::loop will return as
 fast as possible.
+
+=item $count = EV::loop_count
+
+Return the number of times the event loop has polled for new
+events. Sometiems useful as a generation counter.
 
 =item EV::once $fh_or_undef, $events, $timeout, $cb->($revents)
 
@@ -786,7 +791,8 @@ default_loop
 
 =head1 SEE ALSO
 
-L<EV::DNS>.
+L<EV::ADNS> (asynchronous dns), L<Glib::EV> (makes Glib/Gtk2 use EV as
+event loop), L<Coro::EV> (efficient coroutines with EV).
 
 =head1 AUTHOR
 

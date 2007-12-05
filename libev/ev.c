@@ -398,23 +398,44 @@ ev_now (EV_P)
 }
 #endif
 
-#define array_roundsize(type,n) (((n) | 4) & ~3)
+int inline_size
+array_nextsize (int elem, int cur, int cnt)
+{
+  int ncur = cur + 1;
 
-#define array_needsize(type,base,cur,cnt,init)			\
-  if (expect_false ((cnt) > cur))				\
-    {								\
-      int newcnt = cur;						\
-      do							\
-        {							\
-          newcnt = array_roundsize (type, newcnt << 1);		\
-        }							\
-      while ((cnt) > newcnt);					\
-      								\
-      base = (type *)ev_realloc (base, sizeof (type) * (newcnt));\
-      init (base + cur, newcnt - cur);				\
-      cur = newcnt;						\
+  do
+    ncur <<= 1;
+  while (cnt > ncur);
+
+  /* if size > 4096, round to 4096 - 4 * longs to accomodate malloc overhead */
+  if (elem * ncur > 4096)
+    {
+      ncur *= elem;
+      ncur = (ncur + elem + 4095 + sizeof (void *) * 4) & ~4095;
+      ncur = ncur - sizeof (void *) * 4;
+      ncur /= elem;
     }
 
+  return ncur;
+}
+
+inline_speed void *
+array_realloc (int elem, void *base, int *cur, int cnt)
+{
+  *cur = array_nextsize (elem, *cur, cnt);
+  return ev_realloc (base, elem * *cur);
+}
+
+#define array_needsize(type,base,cur,cnt,init)			\
+  if (expect_false ((cnt) > (cur)))				\
+    {								\
+      int ocur_ = (cur);					\
+      (base) = (type *)array_realloc				\
+         (sizeof (type), (base), &(cur), (cnt));		\
+      init ((base) + (ocur_), (cur) - ocur_);			\
+    }
+
+#if 0
 #define array_slim(type,stem)					\
   if (stem ## max < array_roundsize (stem ## cnt >> 2))		\
     {								\
@@ -422,6 +443,7 @@ ev_now (EV_P)
       base = (type *)ev_realloc (base, sizeof (type) * (stem ## max));\
       fprintf (stderr, "slimmed down " # stem " to %d\n", stem ## max);/*D*/\
     }
+#endif
 
 #define array_free(stem, idx) \
   ev_free (stem ## s idx); stem ## cnt idx = stem ## max idx = 0;
@@ -591,7 +613,6 @@ fd_rearm_all (EV_P)
 {
   int fd;
 
-  /* this should be highly optimised to not do anything but set a flag */
   for (fd = 0; fd < anfdmax; ++fd)
     if (anfds [fd].events)
       {
@@ -889,6 +910,12 @@ ev_backend (EV_P)
   return backend;
 }
 
+unsigned int
+ev_loop_count (EV_P)
+{
+  return loop_count;
+}
+
 static void noinline
 loop_init (EV_P_ unsigned int flags)
 {
@@ -906,6 +933,12 @@ loop_init (EV_P_ unsigned int flags)
       mn_now    = get_clock ();
       now_floor = mn_now;
       rtmn_diff = ev_rt_now - mn_now;
+
+      /* pid check not overridable via env */
+#ifndef _WIN32
+      if (flags & EVFLAG_FORKCHECK)
+        curpid = getpid ();
+#endif
 
       if (!(flags & EVFLAG_NOENV)
           && !enable_secure ()
@@ -1272,10 +1305,10 @@ time_update (EV_P)
           /* loop a few times, before making important decisions.
            * on the choice of "4": one iteration isn't enough,
            * in case we get preempted during the calls to
-           * ev_time and get_clock. a second call is almost guarenteed
+           * ev_time and get_clock. a second call is almost guaranteed
            * to succeed in that case, though. and looping a few more times
            * doesn't hurt either as we only do this on time-jumps or
-           * in the unlikely event of getting preempted here.
+           * in the unlikely event of having been preempted here.
            */
           for (i = 4; --i; )
             {
@@ -1307,7 +1340,7 @@ time_update (EV_P)
           periodics_reschedule (EV_A);
 #endif
 
-          /* adjust timers. this is easy, as the offset is the same for all */
+          /* adjust timers. this is easy, as the offset is the same for all of them */
           for (i = 0; i < timercnt; ++i)
             ((WT)timers [i])->at += ev_rt_now - mn_now;
         }
@@ -1337,17 +1370,28 @@ ev_loop (EV_P_ int flags)
             ? EVUNLOOP_ONE
             : EVUNLOOP_CANCEL;
 
-  while (activecnt)
+  call_pending (EV_A); /* in case we recurse, ensure ordering stays nice and clean */
+
+  do
     {
-      /* we might have forked, so reify kernel state if necessary */
-      #if EV_FORK_ENABLE
-        if (expect_false (postfork))
-          if (forkcnt)
-            {
-              queue_events (EV_A_ (W *)forks, forkcnt, EV_FORK);
-              call_pending (EV_A);
-            }
-      #endif
+#ifndef _WIN32
+      if (expect_false (curpid)) /* penalise the forking check even more */
+        if (expect_false (getpid () != curpid))
+          {
+            curpid = getpid ();
+            postfork = 1;
+          }
+#endif
+
+#if EV_FORK_ENABLE
+      /* we might have forked, so queue fork handlers */
+      if (expect_false (postfork))
+        if (forkcnt)
+          {
+            queue_events (EV_A_ (W *)forks, forkcnt, EV_FORK);
+            call_pending (EV_A);
+          }
+#endif
 
       /* queue check watchers (and execute them) */
       if (expect_false (preparecnt))
@@ -1355,6 +1399,9 @@ ev_loop (EV_P_ int flags)
           queue_events (EV_A_ (W *)prepares, preparecnt, EV_PREPARE);
           call_pending (EV_A);
         }
+
+      if (expect_false (!activecnt))
+        break;
 
       /* we might have forked, so reify kernel state if necessary */
       if (expect_false (postfork))
@@ -1365,9 +1412,9 @@ ev_loop (EV_P_ int flags)
 
       /* calculate blocking time */
       {
-        double block;
+        ev_tstamp block;
 
-        if (flags & EVLOOP_NONBLOCK || idlecnt)
+        if (expect_false (flags & EVLOOP_NONBLOCK || idlecnt || !activecnt))
           block = 0.; /* do not block at all */
         else
           {
@@ -1401,6 +1448,7 @@ ev_loop (EV_P_ int flags)
             if (expect_false (block < 0.)) block = 0.;
           }
 
+        ++loop_count;
         backend_poll (EV_A_ block);
       }
 
@@ -1423,9 +1471,8 @@ ev_loop (EV_P_ int flags)
 
       call_pending (EV_A);
 
-      if (expect_false (loop_done))
-        break;
     }
+  while (expect_true (activecnt && !loop_done));
 
   if (loop_done == EVUNLOOP_ONE)
     loop_done = EVUNLOOP_CANCEL;
@@ -1720,7 +1767,7 @@ ev_child_stop (EV_P_ ev_child *w)
 #define DEF_STAT_INTERVAL 5.0074891
 #define MIN_STAT_INTERVAL 0.1074891
 
-void noinline stat_timer_cb (EV_P_ ev_timer *w_, int revents);
+static void noinline stat_timer_cb (EV_P_ ev_timer *w_, int revents);
 
 #if EV_USE_INOTIFY
 # define EV_INOTIFY_BUFSIZE 8192
@@ -1881,7 +1928,7 @@ ev_stat_stat (EV_P_ ev_stat *w)
     w->attr.st_nlink = 1;
 }
 
-void noinline
+static void noinline
 stat_timer_cb (EV_P_ ev_timer *w_, int revents)
 {
   ev_stat *w = (ev_stat *)(((char *)w_) - offsetof (ev_stat, timer));

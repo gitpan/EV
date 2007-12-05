@@ -75,7 +75,7 @@ struct EVAPI {
 # define sv_fileno(sv)         GEVAPI->sv_fileno (sv)
 # define sv_signum(sv)         GEVAPI->sv_signum (sv)
 # define ev_now()              GEVAPI->now ()
-# define ev_time()             GEVAPI->(time) ()
+# define ev_time()             (GEVAPI->time) ()
 # define ev_backend()          GEVAPI->backend ()
 # define ev_loop(flags)        GEVAPI->loop (flags)
 # define ev_unloop(how)        GEVAPI->unloop (how)

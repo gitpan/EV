@@ -312,6 +312,7 @@ union ev_any_watcher
 #define EVFLAG_AUTO       0x00000000UL /* not quite a mask */
 /* flag bits */
 #define EVFLAG_NOENV      0x01000000UL /* do NOT consult environment */
+#define EVFLAG_FORKCHECK  0x02000000UL /* check for a fork in each iteration */
 /* method bits to be ored together */
 #define EVBACKEND_SELECT  0x00000001UL /* about anywhere */
 #define EVBACKEND_POLL    0x00000002UL /* !win */
@@ -387,6 +388,7 @@ void ev_default_destroy (void); /* destroy the default loop */
 void ev_default_fork (void);
 
 unsigned int ev_backend (EV_P);
+unsigned int ev_loop_count (EV_P);
 #endif
 
 #define EVLOOP_NONBLOCK	1 /* do not block/wait */

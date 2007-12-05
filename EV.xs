@@ -22,18 +22,6 @@
 #include "event.c"
 
 #ifndef _WIN32
-#define DNS_USE_GETTIMEOFDAY_FOR_ID 1
-#if !defined (WIN32) && !defined(__CYGWIN__)
-# define HAVE_STRUCT_IN6_ADDR 1
-#endif
-#undef HAVE_STRTOK_R
-#undef strtok_r
-#define strtok_r fake_strtok_r
-#include "evdns.h"
-#include "evdns.c"
-#endif
-
-#ifndef _WIN32
 # include <pthread.h>
 #endif
 
@@ -218,6 +206,7 @@ e_cb (ev_watcher *w, int revents)
 
   if (SvTRUE (ERRSV))
     {
+      SPAGAIN;
       PUSHMARK (SP);
       PUTBACK;
       call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
@@ -257,6 +246,7 @@ e_once_cb (int revents, void *arg)
 
   if (SvTRUE (ERRSV))
     {
+      SPAGAIN;
       PUSHMARK (SP);
       PUTBACK;
       call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
@@ -309,60 +299,6 @@ e_periodic_cb (ev_periodic *w, ev_tstamp now)
   return retval;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// DNS
-
-#ifndef _WIN32
-static void
-dns_cb (int result, char type, int count, int ttl, void *addresses, void *arg)
-{
-  dSP;
-  SV *cb = (SV *)arg;
-
-  ENTER;
-  SAVETMPS;
-  PUSHMARK (SP);
-  EXTEND (SP, count + 3);
-  PUSHs (sv_2mortal (newSViv (result)));
-
-  if (result == DNS_ERR_NONE && ttl >= 0)
-    {
-      int i;
-
-      PUSHs (sv_2mortal (newSViv (type)));
-      PUSHs (sv_2mortal (newSViv (ttl)));
-
-      for (i = 0; i < count; ++i)
-        switch (type)
-          {
-            case DNS_IPv6_AAAA:
-              PUSHs (sv_2mortal (newSVpvn (i * 16 + (char *)addresses, 16)));
-              break;
-            case DNS_IPv4_A:
-              PUSHs (sv_2mortal (newSVpvn (i *  4 + (char *)addresses,  4)));
-              break;
-            case DNS_PTR:
-              PUSHs (sv_2mortal (newSVpv (*(char **)addresses, 0)));
-              break;
-          }
-    }
-
-  PUTBACK;
-  call_sv (sv_2mortal (cb), G_DISCARD | G_VOID | G_EVAL);
-
-  FREETMPS;
-
-  if (SvTRUE (ERRSV))
-    {
-      PUSHMARK (SP);
-      PUTBACK;
-      call_sv (get_sv ("EV::DIED", 1), G_DISCARD | G_VOID | G_EVAL | G_KEEPERR);
-    }
-
-  LEAVE;
-}
-#endif
-
 #define CHECK_REPEAT(repeat) if (repeat < 0.) \
   croak (# repeat " value must be >= 0");
 
@@ -414,6 +350,7 @@ BOOT:
     const_iv (EV, BACKEND_PORT)
     const_iv (EV, FLAG_AUTO)
     const_iv (EV, FLAG_NOENV)
+    const_iv (EV, FLAG_FORKCHECK)
   };
 
   for (civ = const_iv + sizeof (const_iv) / sizeof (const_iv [0]); civ-- > const_iv; )
@@ -484,6 +421,8 @@ unsigned int ev_backend ()
 NV ev_time ()
 
 unsigned int ev_default_loop (unsigned int flags = ev_supported_backends ())
+
+unsigned int ev_loop_count ()
 
 void ev_loop (int flags = 0)
 
@@ -1033,99 +972,6 @@ void prev (ev_stat *w)
           }
 }
 
-#ifndef _WIN32
-
-MODULE = EV		PACKAGE = EV::DNS	PREFIX = evdns_
-
-BOOT:
-{
-  HV *stash = gv_stashpv ("EV::DNS", 1);
-
-  static const struct {
-    const char *name;
-    IV iv;
-  } *civ, const_iv[] = {
-#   define const_iv(pfx, name) { # name, (IV) pfx ## name },
-    const_iv (DNS_, ERR_NONE)
-    const_iv (DNS_, ERR_FORMAT)
-    const_iv (DNS_, ERR_SERVERFAILED)
-    const_iv (DNS_, ERR_NOTEXIST)
-    const_iv (DNS_, ERR_NOTIMPL)
-    const_iv (DNS_, ERR_REFUSED)
-    const_iv (DNS_, ERR_TRUNCATED)
-    const_iv (DNS_, ERR_UNKNOWN)
-    const_iv (DNS_, ERR_TIMEOUT)
-    const_iv (DNS_, ERR_SHUTDOWN)
-    const_iv (DNS_, IPv4_A)
-    const_iv (DNS_, PTR)
-    const_iv (DNS_, IPv6_AAAA)
-    const_iv (DNS_, QUERY_NO_SEARCH)
-    const_iv (DNS_, OPTION_SEARCH)
-    const_iv (DNS_, OPTION_NAMESERVERS)
-    const_iv (DNS_, OPTION_MISC)
-    const_iv (DNS_, OPTIONS_ALL)
-    const_iv (DNS_, NO_SEARCH)
-  };
-
-  for (civ = const_iv + sizeof (const_iv) / sizeof (const_iv [0]); civ-- > const_iv; )
-    newCONSTSUB (stash, (char *)civ->name, newSViv (civ->iv));
-}
-
-int evdns_init ()
-
-void evdns_shutdown (int fail_requests = 1)
-
-const char *evdns_err_to_string (int err)
-
-int evdns_nameserver_add (U32 address)
-
-int evdns_count_nameservers ()
-
-int evdns_clear_nameservers_and_suspend ()
-
-int evdns_resume ()
-
-int evdns_nameserver_ip_add (char *ip_as_string)
-
-int evdns_resolve_ipv4 (const char *name, int flags, SV *cb)
-	C_ARGS: name, flags, dns_cb, (void *)SvREFCNT_inc (cb)
-
-int evdns_resolve_ipv6 (const char *name, int flags, SV *cb)
-	C_ARGS: name, flags, dns_cb, (void *)SvREFCNT_inc (cb)
-
-int evdns_resolve_reverse (SV *addr, int flags, SV *cb)
-	ALIAS:
-        evdns_resolve_reverse_ipv6 = 1
-        CODE:
-{
-        STRLEN len;
-        char *data = SvPVbyte (addr, len);
-        if (len != (ix ? 16 : 4))
-          croak ("ipv4/ipv6 address to be resolved must be given as 4/16 byte octet string");
-
-        RETVAL = ix
-          ? evdns_resolve_reverse_ipv6 ((struct in6_addr *)data, flags, dns_cb, (void *)SvREFCNT_inc (cb))
-          : evdns_resolve_reverse      ((struct in_addr  *)data, flags, dns_cb, (void *)SvREFCNT_inc (cb));
-}
-	OUTPUT:
-        RETVAL
-
-int evdns_set_option (char *option, char *val, int flags)
-
-int evdns_resolv_conf_parse (int flags, const char *filename)
-
-#ifdef _WIN32
-
-int evdns_config_windows_nameservers ()
-
-#endif
-
-void evdns_search_clear ()
-
-void evdns_search_add (char *domain)
-
-void evdns_search_ndots_set (int ndots)
-
 #if 0
 
 MODULE = EV		PACKAGE = EV::HTTP	PREFIX = evhttp_
@@ -1168,7 +1014,6 @@ MODULE = EV		PACKAGE = EV::HTTP::Request	PREFIX = evhttp_request_
 
 #endif
 
-#endif
 
 
 

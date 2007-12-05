@@ -7,7 +7,7 @@ use Socket;
 use EV;
 
 for my $i (3..5) {
-   EV::once undef, 0, $i * 0.05, sub {
+   EV::once undef, 0, $i * 0.2, sub {
       print $_[0] == EV::TIMEOUT ? "" : "not ", "ok $i\n";
    };
 }

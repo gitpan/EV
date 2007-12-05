@@ -97,6 +97,10 @@ BASIC INTERFACE
         When called with an argument of EV::UNLOOP_ALL, all calls to
         EV::loop will return as fast as possible.
 
+    $count = EV::loop_count
+        Return the number of times the event loop has polled for new events.
+        Sometiems useful as a generation counter.
+
     EV::once $fh_or_undef, $events, $timeout, $cb->($revents)
         This function rolls together an I/O and a timer watcher for a single
         one-shot event without the need for managing a watcher object.
@@ -632,7 +636,8 @@ FORK
     course.
 
 SEE ALSO
-    EV::DNS.
+    EV::ADNS (asynchronous dns), Glib::EV (makes Glib/Gtk2 use EV as event
+    loop), Coro::EV (efficient coroutines with EV).
 
 AUTHOR
      Marc Lehmann <schmorp@schmorp.de>

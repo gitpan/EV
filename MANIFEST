@@ -8,7 +8,6 @@ typemap
 EV.xs
 EV.pm
 EV/EVAPI.h
-EV/DNS.pm
 EV/MakeMaker.pm
 
 t/00_load.t
@@ -33,6 +32,4 @@ libev/ev_port.c
 
 libev/event.h
 libev/event.c
-evdns.h
-evdns.c
 META.yml                                 Module meta-data (added by MakeMaker)
