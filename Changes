@@ -1,6 +1,6 @@
 Revision history for Perl extension EV
 
-1.7  Fri Dec  7 19:10:24 CET 2007
+1.71 Fri Dec  7 19:10:24 CET 2007
 	- changed/implemented idle watcher priority.
 	- allow out-of-range priorities to be set.
         - fix ->priority to actually work on started watchers.
