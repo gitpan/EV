@@ -15,6 +15,7 @@ t/01_timer.t
 t/02_once.t
 t/03_keepalive.t
 t/04_stat.t
+t/05_priority.t
 
 libev/LICENSE
 libev/README

@@ -610,14 +610,12 @@ int priority (ev_watcher *w, int new_priority = 0)
           {
             int active = ev_is_active (w);
 
-            if (new_priority < EV_MINPRI || new_priority > EV_MAXPRI)
-              croak ("watcher priority out of range, value must be between %d and %d, inclusive", EV_MINPRI, EV_MAXPRI);
-
             if (active)
               {
                 /* grrr. */
                 PUSHMARK (SP);
                 XPUSHs (ST (0));
+                PUTBACK;
                 call_method ("stop", G_DISCARD | G_VOID);
               }
 
@@ -627,6 +625,7 @@ int priority (ev_watcher *w, int new_priority = 0)
               {
                 PUSHMARK (SP);
                 XPUSHs (ST (0));
+                PUTBACK;
                 call_method ("start", G_DISCARD | G_VOID);
               }
           }

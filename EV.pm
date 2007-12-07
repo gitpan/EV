@@ -60,7 +60,8 @@ This module provides an interface to libev
 below is comprehensive, one might also consult the documentation of libev
 itself (L<http://cvs.schmorp.de/libev/ev.html>) for more subtle details on
 watcher semantics or some discussion on the available backends, or how to
-force a specific backend with C<LIBEV_FLAGS>.
+force a specific backend with C<LIBEV_FLAGS>, or just about in any case
+because it has much more detailed information.
 
 =cut
 
@@ -69,7 +70,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '1.6';
+   our $VERSION = '1.7';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -182,7 +183,7 @@ events.
 Each watcher type has its associated bit in revents, so you can use the
 same callback for multiple watchers. The event mask is named after the
 type, i..e. EV::child sets EV::CHILD, EV::prepare sets EV::PREPARE,
-EV::periodic sets EV::PERIODIC and so on, with the exception of IO events
+EV::periodic sets EV::PERIODIC and so on, with the exception of I/O events
 (which can set both EV::READ and EV::WRITE bits), and EV::timer (which
 uses EV::TIMEOUT).
 
@@ -214,7 +215,7 @@ active watcher. By default, all watchers start out in the active state
 
 Stop a watcher if it is active. Also clear any pending events (events that
 have been received but that didn't yet result in a callback invocation),
-regardless of wether the watcher was active or not.
+regardless of whether the watcher was active or not.
 
 =item $bool = $w->is_active
 
@@ -279,7 +280,7 @@ though your watcher is active, it won't keep C<EV::loop> from returning.
 The initial value for keepalive is true (enabled), and you cna change it
 any time.
 
-Example: Register an IO watcher for some UDP socket but do not keep the
+Example: Register an I/O watcher for some UDP socket but do not keep the
 event loop from running just because of that watcher.
 
    my $udp_socket = ...
@@ -293,7 +294,7 @@ event loop from running just because of that watcher.
 
 Each of the following subsections describes a single watcher type.
 
-=head3 IO WATCHERS - is this file descriptor readable or writable?
+=head3 I/O WATCHERS - is this file descriptor readable or writable?
 
 =over 4
 
@@ -647,11 +648,23 @@ used to query the actual interval used.
 
 =item $w = EV::idle_ns $callback
 
-Call the callback when there are no pending io, timer/periodic, signal or
-child events, i.e. when the process is idle.
+Call the callback when there are no other pending watchers of the same or
+higher priority (excluding check, prepare and other idle watchers of the
+same or lower priority, of course). They are called idle watchers because
+when the watcher is the highest priority pending event in the process, the
+process is considered to be idle at that priority.
+
+If you want a watcher that is only ever called when I<no> other events are
+outstanding you have to set the priority to C<EV::MINPRI>.
 
 The process will not block as long as any idle watchers are active, and
 they will be called repeatedly until stopped.
+
+For example, if you have idle watchers at priority C<0> and C<1>, and
+an I/O watcher at priority C<0>, then the idle watcher at priority C<1>
+and the I/O watcher will always run when ready. Only when the idle watcher
+at priority C<1> is stopped and the I/O watcher at priority C<0> is not
+pending with the C<0>-priority idle watcher be invoked.
 
 The C<idle_ns> variant doesn't start (activate) the newly created watcher.
 
@@ -702,7 +715,7 @@ example of integrating Net::SNMP (with some details left out):
       # make the dispatcher handle any outstanding stuff
       ... not shown
 
-      # create an IO watcher for each and every socket
+      # create an I/O watcher for each and every socket
       @snmp_watcher = (
          (map { EV::io $_, EV::READ, sub { } }
              keys %{ $dispatcher->{_descriptors} }),
@@ -754,6 +767,25 @@ The C<fork_ns> variant doesn't start (activate) the newly created watcher.
 
 =back
 
+
+=head1 PERL SIGNALS
+
+While Perl signal handling (C<%SIG>) is not affected by EV, the behaviour
+with EV is as the same as any other C library: Perl-signals will only be
+handled when Perl runs, which means your signal handler might be invoked
+only the next time an event callback is invoked.
+
+The solution is to use EV signal watchers (see C<EV::signal>), which will
+ensure proper operations with regards to other event watchers.
+
+If you cannot do this for whatever reason, you can also force a watcher
+to be called on every event loop iteration by installing a C<EV::check>
+watcher:
+
+   my $async_check = EV::check sub { };
+
+This ensures that perl shortly gets into control for a short time, and
+also ensures slower overall operation.
 
 =head1 THREADS
 
