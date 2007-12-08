@@ -124,6 +124,16 @@ BASIC INTERFACE
         either of them triggers, then they will be stopped and freed, and
         the callback invoked.
 
+    EV::feed_fd_event ($fd, $revents)
+        Feed an event on a file descriptor into EV. EV will react to this
+        call as if the readyness notifications specified by $revents (a
+        combination of "EV::READ" and "EV::WRITE") happened on the file
+        descriptor $fd.
+
+    EV::feed_signal_event ($signal)
+        Feed a signal event into EV. EV will react to this call as if the
+        signal specified by $signal had occured.
+
   WATCHER OBJECTS
     A watcher is an object that gets created to record your interest in some
     event. For instance, if you want to wait for STDIN to become readable,
@@ -204,8 +214,18 @@ BASIC INTERFACE
         Note that the priority semantics have not yet been fleshed out and
         are subject to almost certain change.
 
-    $w->trigger ($revents)
+    $w->invoke ($revents)
         Call the callback *now* with the given event mask.
+
+    $w->feed_event ($revents)
+        Feed some events on this watcher into EV. EV will react to this call
+        as if the watcher had received the given $revents mask.
+
+    $revents = $w->clear_pending
+        If the watcher is pending, this function returns clears its pending
+        status and returns its $revents bitset (as if its callback was
+        invoked). If the watcher isn't pending it does nothing and returns
+        0.
 
     $previous_state = $w->keepalive ($bool)
         Normally, "EV::loop" will return when there are no active watchers

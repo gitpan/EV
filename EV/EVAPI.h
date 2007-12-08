@@ -30,7 +30,7 @@ struct EVAPI {
   I32 ver;
   I32 rev;
 #define EV_API_VERSION 2
-#define EV_API_REVISION 0
+#define EV_API_REVISION 1
 
   /* perl fh or fd int to fd */
   int (*sv_fileno) (SV *fh);
@@ -38,45 +38,44 @@ struct EVAPI {
   int (*sv_signum) (SV *fh);
 
   /* same as libev functions */
-  ev_tstamp (*now)(void);
+  ev_tstamp (*now)(EV_P);
   ev_tstamp (*(time))(void);
-  unsigned int (*backend)(void);
-  void (*loop)(int flags);
-  void (*unloop)(int how);
-  void (*ref)(void);
-  void (*unref)(void);
-  void (*once)(int fd, int events, ev_tstamp timeout, void (*cb)(int revents, void *arg), void *arg);
-  void (*io_start)(struct ev_io *);
-  void (*io_stop) (struct ev_io *);
-  void (*timer_start)(struct ev_timer *);
-  void (*timer_stop) (struct ev_timer *);
-  void (*timer_again)(struct ev_timer *);
-  void (*periodic_start)(struct ev_periodic *);
-  void (*periodic_stop) (struct ev_periodic *);
-  void (*signal_start)(struct ev_signal *);
-  void (*signal_stop) (struct ev_signal *);
-  void (*child_start)(struct ev_child *);
-  void (*child_stop) (struct ev_child *);
-  void (*stat_start)(struct ev_stat *);
-  void (*stat_stop) (struct ev_stat *);
-  void (*stat_stat) (struct ev_stat *);
-  void (*idle_start)(struct ev_idle *);
-  void (*idle_stop) (struct ev_idle *);
-  void (*prepare_start)(struct ev_prepare *);
-  void (*prepare_stop) (struct ev_prepare *);
-  void (*check_start)(struct ev_check *);
-  void (*check_stop) (struct ev_check *);
-  void *embed_start_dummy;
-  void *embed_stop_dummy;
-  void *embed_sweep_dummy;
+  unsigned int (*backend)(EV_P);
+  void (*loop)(EV_P_ int flags);
+  void (*unloop)(EV_P_ int how);
+  void (*ref)(EV_P);
+  void (*unref)(EV_P);
+  void (*once)(EV_P_ int fd, int events, ev_tstamp timeout, void (*cb)(int revents, void *arg), void *arg);
+  void (*io_start)(EV_P_ ev_io *);
+  void (*io_stop) (EV_P_ ev_io *);
+  void (*timer_start)(EV_P_ ev_timer *);
+  void (*timer_stop) (EV_P_ ev_timer *);
+  void (*timer_again)(EV_P_ ev_timer *);
+  void (*periodic_start)(EV_P_ ev_periodic *);
+  void (*periodic_stop) (EV_P_ ev_periodic *);
+  void (*signal_start)(EV_P_ ev_signal *);
+  void (*signal_stop) (EV_P_ ev_signal *);
+  void (*child_start)(EV_P_ ev_child *);
+  void (*child_stop) (EV_P_ ev_child *);
+  void (*stat_start)(EV_P_ ev_stat *);
+  void (*stat_stop) (EV_P_ ev_stat *);
+  void (*stat_stat) (EV_P_ ev_stat *);
+  void (*idle_start)(EV_P_ ev_idle *);
+  void (*idle_stop) (EV_P_ ev_idle *);
+  void (*prepare_start)(EV_P_ ev_prepare *);
+  void (*prepare_stop) (EV_P_ ev_prepare *);
+  void (*check_start)(EV_P_ ev_check *);
+  void (*check_stop) (EV_P_ ev_check *);
+  int  (*clear_pending)(EV_P_ void *);
+  void (*invoke)(EV_P_ void *, int);
 };
 
 #if !EV_PROTOTYPES
 # define sv_fileno(sv)         GEVAPI->sv_fileno (sv)
 # define sv_signum(sv)         GEVAPI->sv_signum (sv)
-# define ev_now()              GEVAPI->now ()
-# define ev_time()             (GEVAPI->time) ()
-# define ev_backend()          GEVAPI->backend ()
+# define ev_now(loop)          GEVAPI->now (loop)
+# define ev_time()             GEVAPI->(time) ()
+# define ev_backend(loop)      GEVAPI->backend (loop)
 # define ev_loop(flags)        GEVAPI->loop (flags)
 # define ev_unloop(how)        GEVAPI->unloop (how)
 # define ev_once(fd,events,timeout,cb,arg) GEVAPI->once ((fd), (events), (timeout), (cb), (arg))
@@ -100,8 +99,10 @@ struct EVAPI {
 # define ev_stat_start(w)      GEVAPI->stat_start (w)
 # define ev_stat_stop(w)       GEVAPI->stat_stop  (w)
 # define ev_stat_stat(w)       GEVAPI->stat_stat  (w)
-# define ev_ref()              GEVAPI->ref   ()
-# define ev_unref()            GEVAPI->unref ()
+# define ev_ref(loop)          GEVAPI->ref   (loop)
+# define ev_unref(loop)        GEVAPI->unref (loop)
+# define ev_clear_pending(w)   GEVAPI->clear_pending (w)
+# define ev_invoke(w,rev)      GEVAPI->invoke (w, rev)
 #endif
 
 static struct EVAPI *GEVAPI;

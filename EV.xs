@@ -405,6 +405,8 @@ BOOT:
     evapi.stat_start     = ev_stat_start;
     evapi.stat_stop      = ev_stat_stop;
     evapi.stat_stat      = ev_stat_stat;
+    evapi.clear_pending  = ev_clear_pending;
+    evapi.invoke         = ev_invoke;
 
     sv_setiv (sv, (IV)&evapi);
     SvREADONLY_on (sv);
@@ -427,6 +429,17 @@ unsigned int ev_loop_count ()
 void ev_loop (int flags = 0)
 
 void ev_unloop (int how = 1)
+
+void ev_feed_fd_event (int fd, int revents = EV_NONE)
+
+void ev_feed_signal_event (SV *signal)
+	CODE:
+{
+  	Signal signum = sv_signum (signal);
+        CHECK_SIG (signal, signum);
+
+        ev_feed_signal_event (EV_DEFAULT_ signum);
+}
 
 ev_io *io (SV *fh, int events, SV *cb)
 	ALIAS:
@@ -556,6 +569,12 @@ int ev_is_active (ev_watcher *w)
 
 int ev_is_pending (ev_watcher *w)
 
+void ev_invoke (ev_watcher *w, int revents = EV_NONE)
+
+int ev_clear_pending (ev_watcher *w)
+
+void ev_feed_event (ev_watcher *w, int revents = EV_NONE)
+
 int keepalive (ev_watcher *w, int new_value = 0)
 	CODE:
 {
@@ -596,10 +615,6 @@ SV *data (ev_watcher *w, SV *new_data = 0)
 }
 	OUTPUT:
         RETVAL
-
-void trigger (ev_watcher *w, int revents = EV_NONE)
-	CODE:
-        w->cb (w, revents);
 
 int priority (ev_watcher *w, int new_priority = 0)
 	CODE:

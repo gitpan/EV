@@ -224,23 +224,24 @@ extern "C" {
 
 #if __GNUC__ >= 3
 # define expect(expr,value)         __builtin_expect ((expr),(value))
-# define inline_size                static inline /* inline for codesize */
-# if EV_MINIMAL
-#  define noinline                  __attribute__ ((noinline))
-#  define inline_speed              static noinline
-# else
-#  define noinline
-#  define inline_speed              static inline
-# endif
+# define noinline                   __attribute__ ((noinline))
 #else
 # define expect(expr,value)         (expr)
-# define inline_speed               static
-# define inline_size                static
 # define noinline
+# if __STDC_VERSION__ < 199901L
+#  define inline
+# endif
 #endif
 
 #define expect_false(expr) expect ((expr) != 0, 0)
 #define expect_true(expr)  expect ((expr) != 0, 1)
+#define inline_size        static inline
+
+#if EV_MINIMAL
+# define inline_speed      static noinline
+#else
+# define inline_speed      static inline
+#endif
 
 #define NUMPRI    (EV_MAXPRI - EV_MINPRI + 1)
 #define ABSPRI(w) (((W)w)->priority - EV_MINPRI)
@@ -509,7 +510,8 @@ fd_event (EV_P_ int fd, int revents)
 void
 ev_feed_fd_event (EV_P_ int fd, int revents)
 {
-  fd_event (EV_A_ fd, revents);
+  if (fd >= 0 && fd < anfdmax)
+    fd_event (EV_A_ fd, revents);
 }
 
 void inline_size
@@ -1165,6 +1167,12 @@ ev_default_fork (void)
 
 /*****************************************************************************/
 
+void
+ev_invoke (EV_P_ void *w, int revents)
+{
+  EV_CB_INVOKE ((W)w, revents);
+}
+
 void inline_speed
 call_pending (EV_P)
 {
@@ -1525,13 +1533,29 @@ wlist_del (WL *head, WL elem)
 }
 
 void inline_speed
-ev_clear_pending (EV_P_ W w)
+clear_pending (EV_P_ W w)
 {
   if (w->pending)
     {
       pendings [ABSPRI (w)][w->pending - 1].w = 0;
       w->pending = 0;
     }
+}
+
+int
+ev_clear_pending (EV_P_ void *w)
+{
+  W w_ = (W)w;
+  int pending = w_->pending;
+
+  if (!pending)
+    return 0;
+
+  w_->pending = 0;
+  ANPENDING *p = pendings [ABSPRI (w_)] + pending - 1;
+  p->w = 0;
+
+  return p->events;
 }
 
 void inline_size
@@ -1580,7 +1604,7 @@ ev_io_start (EV_P_ ev_io *w)
 void
 ev_io_stop (EV_P_ ev_io *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -1613,7 +1637,7 @@ ev_timer_start (EV_P_ ev_timer *w)
 void
 ev_timer_stop (EV_P_ ev_timer *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -1681,7 +1705,7 @@ ev_periodic_start (EV_P_ ev_periodic *w)
 void
 ev_periodic_stop (EV_P_ ev_periodic *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -1745,7 +1769,7 @@ ev_signal_start (EV_P_ ev_signal *w)
 void
 ev_signal_stop (EV_P_ ev_signal *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -1772,7 +1796,7 @@ ev_child_start (EV_P_ ev_child *w)
 void
 ev_child_stop (EV_P_ ev_child *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -2018,7 +2042,7 @@ ev_stat_start (EV_P_ ev_stat *w)
 void
 ev_stat_stop (EV_P_ ev_stat *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -2054,7 +2078,7 @@ ev_idle_start (EV_P_ ev_idle *w)
 void
 ev_idle_stop (EV_P_ ev_idle *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -2084,7 +2108,7 @@ ev_prepare_start (EV_P_ ev_prepare *w)
 void
 ev_prepare_stop (EV_P_ ev_prepare *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -2111,7 +2135,7 @@ ev_check_start (EV_P_ ev_check *w)
 void
 ev_check_stop (EV_P_ ev_check *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -2163,7 +2187,7 @@ ev_embed_start (EV_P_ ev_embed *w)
 void
 ev_embed_stop (EV_P_ ev_embed *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
@@ -2188,7 +2212,7 @@ ev_fork_start (EV_P_ ev_fork *w)
 void
 ev_fork_stop (EV_P_ ev_fork *w)
 {
-  ev_clear_pending (EV_A_ (W)w);
+  clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 

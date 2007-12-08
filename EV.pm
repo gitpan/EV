@@ -70,7 +70,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '1.71';
+   our $VERSION = '1.72';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -162,7 +162,19 @@ EV::once doesn't return anything: the watchers stay active till either
 of them triggers, then they will be stopped and freed, and the callback
 invoked.
 
+=item EV::feed_fd_event ($fd, $revents)
+
+Feed an event on a file descriptor into EV. EV will react to this call as
+if the readyness notifications specified by C<$revents> (a combination of
+C<EV::READ> and C<EV::WRITE>) happened on the file descriptor C<$fd>.
+
+=item EV::feed_signal_event ($signal)
+
+Feed a signal event into EV. EV will react to this call as if the signal
+specified by C<$signal> had occured.
+
 =back
+
 
 =head2 WATCHER OBJECTS
 
@@ -255,9 +267,20 @@ The default priority of any newly-created watcher is 0.
 Note that the priority semantics have not yet been fleshed out and are
 subject to almost certain change.
 
-=item $w->trigger ($revents)
+=item $w->invoke ($revents)
 
 Call the callback *now* with the given event mask.
+
+=item $w->feed_event ($revents)
+
+Feed some events on this watcher into EV. EV will react to this call as if
+the watcher had received the given C<$revents> mask.
+
+=item $revents = $w->clear_pending
+
+If the watcher is pending, this function returns clears its pending status
+and returns its C<$revents> bitset (as if its callback was invoked). If the
+watcher isn't pending it does nothing and returns C<0>.
 
 =item $previous_state = $w->keepalive ($bool)
 
