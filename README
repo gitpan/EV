@@ -64,7 +64,7 @@ DESCRIPTION
 BASIC INTERFACE
     $EV::DIED
         Must contain a reference to a function that is called when a
-        callback throws an exception (with $@ containing thr error). The
+        callback throws an exception (with $@ containing the error). The
         default prints an informative message and continues.
 
         If this callback throws an exception it will be silently ignored.

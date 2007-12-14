@@ -70,7 +70,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '1.72';
+   our $VERSION = '1.85';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -95,7 +95,7 @@ BEGIN {
 =item $EV::DIED
 
 Must contain a reference to a function that is called when a callback
-throws an exception (with $@ containing thr error). The default prints an
+throws an exception (with $@ containing the error). The default prints an
 informative message and continues.
 
 If this callback throws an exception it will be silently ignored.
@@ -840,7 +840,7 @@ our $DIED = sub {
 };
 
 default_loop
-   or die 'EV: cannot initialise libev backend. bad $ENV{LIBEV_METHODS}?';
+   or die 'EV: cannot initialise libev backend. bad $ENV{LIBEV_FLAGS}?';
 
 1;
 

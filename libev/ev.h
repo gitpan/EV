@@ -99,6 +99,7 @@ struct ev_loop;
 #define EV_NONE           0x00L /* no events */
 #define EV_READ           0x01L /* ev_io detected read will not block */
 #define EV_WRITE          0x02L /* ev_io detected write will not block */
+#define EV_IOFDSET        0x80L /* internal use only */
 #define EV_TIMEOUT  0x00000100L /* timer timed out */
 #define EV_PERIODIC 0x00000200L /* periodic timer timed out */
 #define EV_SIGNAL   0x00000400L /* signal was received */
@@ -119,8 +120,8 @@ struct ev_loop;
 # define EV_PROTOTYPES 1
 #endif
 
-#define EV_VERSION_MAJOR 1
-#define EV_VERSION_MINOR 1
+#define EV_VERSION_MAJOR 2
+#define EV_VERSION_MINOR 0
 
 #ifndef EV_CB_DECLARE
 # define EV_CB_DECLARE(type) void (*cb)(EV_P_ struct type *w, int revents);
@@ -195,6 +196,7 @@ typedef struct ev_periodic
 {
   EV_WATCHER_TIME (ev_periodic)
 
+  ev_tstamp offset; /* rw */
   ev_tstamp interval; /* rw */
   ev_tstamp (*reschedule_cb)(struct ev_periodic *w, ev_tstamp now); /* rw */
 } ev_periodic;
@@ -431,9 +433,9 @@ void ev_once (EV_P_ int fd, int events, ev_tstamp timeout, void (*cb)(int revent
   ev_set_cb ((ev), cb_);			\
 } while (0)
 
-#define ev_io_set(ev,fd_,events_)           do { (ev)->fd = (fd_); (ev)->events = (events_); } while (0)
+#define ev_io_set(ev,fd_,events_)           do { (ev)->fd = (fd_); (ev)->events = (events_) | EV_IOFDSET; } while (0)
 #define ev_timer_set(ev,after_,repeat_)     do { (ev)->at = (after_); (ev)->repeat = (repeat_); } while (0)
-#define ev_periodic_set(ev,at_,ival_,res_)  do { (ev)->at = (at_); (ev)->interval = (ival_); (ev)->reschedule_cb= (res_); } while (0)
+#define ev_periodic_set(ev,ofs_,ival_,res_) do { (ev)->offset = (ofs_); (ev)->interval = (ival_); (ev)->reschedule_cb= (res_); } while (0)
 #define ev_signal_set(ev,signum_)           do { (ev)->signum = (signum_); } while (0)
 #define ev_child_set(ev,pid_)               do { (ev)->pid = (pid_); } while (0)
 #define ev_stat_set(ev,path_,interval_)     do { (ev)->path = (path_); (ev)->interval = (interval_); (ev)->wd = -2; } while (0)

@@ -204,11 +204,8 @@ extern "C" {
 # define EV_USE_REALTIME 0
 #endif
 
-#if EV_SELECT_IS_WINSOCKET
-# include <winsock.h>
-#endif
-
 #if !EV_STAT_ENABLE
+# undef EV_USE_INOTIFY
 # define EV_USE_INOTIFY 0
 #endif
 
@@ -216,13 +213,27 @@ extern "C" {
 # include <sys/inotify.h>
 #endif
 
+#if EV_SELECT_IS_WINSOCKET
+# include <winsock.h>
+#endif
+
 /**/
+
+/*
+ * This is used to avoid floating point rounding problems.
+ * It is added to ev_rt_now when scheduling periodics
+ * to ensure progress, time-wise, even when rounding
+ * errors are against us.
+ * This value is good at least till the year 4000.
+ * Better solutions welcome.
+ */
+#define TIME_EPSILON  0.0001220703125 /* 1/8192 */
 
 #define MIN_TIMEJUMP  1. /* minimum timejump that gets detected (if monotonic clock available) */
 #define MAX_BLOCKTIME 59.743 /* never wait longer than this time (to detect time jumps) */
-/*#define CLEANUP_INTERVAL (MAX_BLOCKTIME * 5.) /* how often to try to free memory and re-check fds */
+/*#define CLEANUP_INTERVAL (MAX_BLOCKTIME * 5.) /* how often to try to free memory and re-check fds, TODO */
 
-#if __GNUC__ >= 3
+#if __GNUC__ >= 4
 # define expect(expr,value)         __builtin_expect ((expr),(value))
 # define noinline                   __attribute__ ((noinline))
 #else
@@ -420,7 +431,7 @@ array_nextsize (int elem, int cur, int cnt)
   return ncur;
 }
 
-inline_speed void *
+static noinline void *
 array_realloc (int elem, void *base, int *cur, int cnt)
 {
   *cur = array_nextsize (elem, *cur, cnt);
@@ -455,20 +466,20 @@ void noinline
 ev_feed_event (EV_P_ void *w, int revents)
 {
   W w_ = (W)w;
+  int pri = ABSPRI (w_);
 
   if (expect_false (w_->pending))
+    pendings [pri][w_->pending - 1].events |= revents;
+  else
     {
-      pendings [ABSPRI (w_)][w_->pending - 1].events |= revents;
-      return;
+      w_->pending = ++pendingcnt [pri];
+      array_needsize (ANPENDING, pendings [pri], pendingmax [pri], w_->pending, EMPTY2);
+      pendings [pri][w_->pending - 1].w      = w_;
+      pendings [pri][w_->pending - 1].events = revents;
     }
-
-  w_->pending = ++pendingcnt [ABSPRI (w_)];
-  array_needsize (ANPENDING, pendings [ABSPRI (w_)], pendingmax [ABSPRI (w_)], pendingcnt [ABSPRI (w_)], EMPTY2);
-  pendings [ABSPRI (w_)][w_->pending - 1].w      = w_;
-  pendings [ABSPRI (w_)][w_->pending - 1].events = revents;
 }
 
-void inline_size
+void inline_speed
 queue_events (EV_P_ W *events, int eventcnt, int type)
 {
   int i;
@@ -525,10 +536,10 @@ fd_reify (EV_P)
       ANFD *anfd = anfds + fd;
       ev_io *w;
 
-      int events = 0;
+      unsigned char events = 0;
 
       for (w = (ev_io *)anfd->head; w; w = (ev_io *)((WL)w)->next)
-        events |= w->events;
+        events |= (unsigned char)w->events;
 
 #if EV_SELECT_IS_WINSOCKET
       if (events)
@@ -539,26 +550,33 @@ fd_reify (EV_P)
         }
 #endif
 
-      anfd->reify = 0;
+      {
+        unsigned char o_events = anfd->events;
+        unsigned char o_reify  = anfd->reify;
 
-      backend_modify (EV_A_ fd, anfd->events, events);
-      anfd->events = events;
+        anfd->reify  = 0;
+        anfd->events = events;
+
+        if (o_events != events || o_reify & EV_IOFDSET)
+          backend_modify (EV_A_ fd, o_events, events);
+      }
     }
 
   fdchangecnt = 0;
 }
 
 void inline_size
-fd_change (EV_P_ int fd)
+fd_change (EV_P_ int fd, int flags)
 {
-  if (expect_false (anfds [fd].reify))
-    return;
+  unsigned char reify = anfds [fd].reify;
+  anfds [fd].reify |= flags;
 
-  anfds [fd].reify = 1;
-
-  ++fdchangecnt;
-  array_needsize (int, fdchanges, fdchangemax, fdchangecnt, EMPTY2);
-  fdchanges [fdchangecnt - 1] = fd;
+  if (expect_true (!reify))
+    {
+      ++fdchangecnt;
+      array_needsize (int, fdchanges, fdchangemax, fdchangecnt, EMPTY2);
+      fdchanges [fdchangecnt - 1] = fd;
+    }
 }
 
 void inline_speed
@@ -619,7 +637,7 @@ fd_rearm_all (EV_P)
     if (anfds [fd].events)
       {
         anfds [fd].events = 0;
-        fd_change (EV_A_ fd);
+        fd_change (EV_A_ fd, EV_IOFDSET | 1);
       }
 }
 
@@ -630,16 +648,20 @@ upheap (WT *heap, int k)
 {
   WT w = heap [k];
 
-  while (k && heap [k >> 1]->at > w->at)
+  while (k)
     {
-      heap [k] = heap [k >> 1];
+      int p = (k - 1) >> 1;
+
+      if (heap [p]->at <= w->at)
+        break;
+
+      heap [k] = heap [p];
       ((W)heap [k])->active = k + 1;
-      k >>= 1;
+      k = p;
     }
 
   heap [k] = w;
   ((W)heap [k])->active = k + 1;
-
 }
 
 void inline_speed
@@ -647,19 +669,23 @@ downheap (WT *heap, int N, int k)
 {
   WT w = heap [k];
 
-  while (k < (N >> 1))
+  for (;;)
     {
-      int j = k << 1;
+      int c = (k << 1) + 1;
 
-      if (j + 1 < N && heap [j]->at > heap [j + 1]->at)
-        ++j;
-
-      if (w->at <= heap [j]->at)
+      if (c >= N)
         break;
 
-      heap [k] = heap [j];
+      c += c + 1 < N && heap [c]->at > heap [c + 1]->at
+           ? 1 : 0;
+
+      if (w->at <= heap [c]->at)
+        break;
+
+      heap [k] = heap [c];
       ((W)heap [k])->active = k + 1;
-      k = j;
+
+      k = c;
     }
 
   heap [k] = w;
@@ -751,7 +777,7 @@ sigcb (EV_P_ ev_io *iow, int revents)
       ev_feed_signal_event (EV_A_ signum + 1);
 }
 
-void inline_size
+void inline_speed
 fd_intern (int fd)
 {
 #ifdef _WIN32
@@ -776,7 +802,7 @@ siginit (EV_P)
 
 /*****************************************************************************/
 
-static ev_child *childs [EV_PID_HASHSIZE];
+static WL childs [EV_PID_HASHSIZE];
 
 #ifndef _WIN32
 
@@ -1198,7 +1224,7 @@ timers_reify (EV_P)
 {
   while (timercnt && ((WT)timers [0])->at <= mn_now)
     {
-      ev_timer *w = timers [0];
+      ev_timer *w = (ev_timer *)timers [0];
 
       /*assert (("inactive timer on timer heap detected", ev_is_active (w)));*/
 
@@ -1211,7 +1237,7 @@ timers_reify (EV_P)
           if (((WT)w)->at < mn_now)
             ((WT)w)->at = mn_now;
 
-          downheap ((WT *)timers, timercnt, 0);
+          downheap (timers, timercnt, 0);
         }
       else
         ev_timer_stop (EV_A_ w); /* nonrepeating: stop timer */
@@ -1226,22 +1252,23 @@ periodics_reify (EV_P)
 {
   while (periodiccnt && ((WT)periodics [0])->at <= ev_rt_now)
     {
-      ev_periodic *w = periodics [0];
+      ev_periodic *w = (ev_periodic *)periodics [0];
 
       /*assert (("inactive timer on periodic heap detected", ev_is_active (w)));*/
 
       /* first reschedule or stop timer */
       if (w->reschedule_cb)
         {
-          ((WT)w)->at = w->reschedule_cb (w, ev_rt_now + 0.0001);
+          ((WT)w)->at = w->reschedule_cb (w, ev_rt_now + TIME_EPSILON);
           assert (("ev_periodic reschedule callback returned time in the past", ((WT)w)->at > ev_rt_now));
-          downheap ((WT *)periodics, periodiccnt, 0);
+          downheap (periodics, periodiccnt, 0);
         }
       else if (w->interval)
         {
-          ((WT)w)->at += floor ((ev_rt_now - ((WT)w)->at) / w->interval + 1.) * w->interval;
+          ((WT)w)->at = w->offset + ceil ((ev_rt_now - w->offset) / w->interval) * w->interval;
+          if (((WT)w)->at - ev_rt_now <= TIME_EPSILON) ((WT)w)->at += w->interval;
           assert (("ev_periodic timeout in the past detected while processing timers, negative interval?", ((WT)w)->at > ev_rt_now));
-          downheap ((WT *)periodics, periodiccnt, 0);
+          downheap (periodics, periodiccnt, 0);
         }
       else
         ev_periodic_stop (EV_A_ w); /* nonrepeating: stop timer */
@@ -1258,17 +1285,17 @@ periodics_reschedule (EV_P)
   /* adjust periodics after time jump */
   for (i = 0; i < periodiccnt; ++i)
     {
-      ev_periodic *w = periodics [i];
+      ev_periodic *w = (ev_periodic *)periodics [i];
 
       if (w->reschedule_cb)
         ((WT)w)->at = w->reschedule_cb (w, ev_rt_now);
       else if (w->interval)
-        ((WT)w)->at += ceil ((ev_rt_now - ((WT)w)->at) / w->interval) * w->interval;
+        ((WT)w)->at = w->offset + ceil ((ev_rt_now - w->offset) / w->interval) * w->interval;
     }
 
   /* now rebuild the heap */
   for (i = periodiccnt >> 1; i--; )
-    downheap ((WT *)periodics, periodiccnt, i);
+    downheap (periodics, periodiccnt, i);
 }
 #endif
 
@@ -1295,74 +1322,65 @@ idle_reify (EV_P)
 }
 #endif
 
-int inline_size
-time_update_monotonic (EV_P)
-{
-  mn_now = get_clock ();
-
-  if (expect_true (mn_now - now_floor < MIN_TIMEJUMP * .5))
-    {
-      ev_rt_now = rtmn_diff + mn_now;
-      return 0;
-    }
-  else
-    {
-      now_floor = mn_now;
-      ev_rt_now = ev_time ();
-      return 1;
-    }
-}
-
-void inline_size
-time_update (EV_P)
+void inline_speed
+time_update (EV_P_ ev_tstamp max_block)
 {
   int i;
 
 #if EV_USE_MONOTONIC
   if (expect_true (have_monotonic))
     {
-      if (time_update_monotonic (EV_A))
+      ev_tstamp odiff = rtmn_diff;
+
+      mn_now = get_clock ();
+
+      /* only fetch the realtime clock every 0.5*MIN_TIMEJUMP seconds */
+      /* interpolate in the meantime */
+      if (expect_true (mn_now - now_floor < MIN_TIMEJUMP * .5))
         {
-          ev_tstamp odiff = rtmn_diff;
+          ev_rt_now = rtmn_diff + mn_now;
+          return;
+        }
 
-          /* loop a few times, before making important decisions.
-           * on the choice of "4": one iteration isn't enough,
-           * in case we get preempted during the calls to
-           * ev_time and get_clock. a second call is almost guaranteed
-           * to succeed in that case, though. and looping a few more times
-           * doesn't hurt either as we only do this on time-jumps or
-           * in the unlikely event of having been preempted here.
-           */
-          for (i = 4; --i; )
-            {
-              rtmn_diff = ev_rt_now - mn_now;
+      now_floor = mn_now;
+      ev_rt_now = ev_time ();
 
-              if (fabs (odiff - rtmn_diff) < MIN_TIMEJUMP)
-                return; /* all is well */
+      /* loop a few times, before making important decisions.
+       * on the choice of "4": one iteration isn't enough,
+       * in case we get preempted during the calls to
+       * ev_time and get_clock. a second call is almost guaranteed
+       * to succeed in that case, though. and looping a few more times
+       * doesn't hurt either as we only do this on time-jumps or
+       * in the unlikely event of having been preempted here.
+       */
+      for (i = 4; --i; )
+        {
+          rtmn_diff = ev_rt_now - mn_now;
 
-              ev_rt_now = ev_time ();
-              mn_now    = get_clock ();
-              now_floor = mn_now;
-            }
+          if (fabs (odiff - rtmn_diff) < MIN_TIMEJUMP)
+            return; /* all is well */
+
+          ev_rt_now = ev_time ();
+          mn_now    = get_clock ();
+          now_floor = mn_now;
+        }
 
 # if EV_PERIODIC_ENABLE
-          periodics_reschedule (EV_A);
+      periodics_reschedule (EV_A);
 # endif
-          /* no timer adjustment, as the monotonic clock doesn't jump */
-          /* timers_reschedule (EV_A_ rtmn_diff - odiff) */
-        }
+      /* no timer adjustment, as the monotonic clock doesn't jump */
+      /* timers_reschedule (EV_A_ rtmn_diff - odiff) */
     }
   else
 #endif
     {
       ev_rt_now = ev_time ();
 
-      if (expect_false (mn_now > ev_rt_now || mn_now < ev_rt_now - MAX_BLOCKTIME - MIN_TIMEJUMP))
+      if (expect_false (mn_now > ev_rt_now || ev_rt_now > mn_now + max_block + MIN_TIMEJUMP))
         {
 #if EV_PERIODIC_ENABLE
           periodics_reschedule (EV_A);
 #endif
-
           /* adjust timers. this is easy, as the offset is the same for all of them */
           for (i = 0; i < timercnt; ++i)
             ((WT)timers [i])->at += ev_rt_now - mn_now;
@@ -1416,7 +1434,7 @@ ev_loop (EV_P_ int flags)
           }
 #endif
 
-      /* queue check watchers (and execute them) */
+      /* queue prepare watchers (and execute them) */
       if (expect_false (preparecnt))
         {
           queue_events (EV_A_ (W *)prepares, preparecnt, EV_PREPARE);
@@ -1442,15 +1460,7 @@ ev_loop (EV_P_ int flags)
         else
           {
             /* update time to cancel out callback processing overhead */
-#if EV_USE_MONOTONIC
-            if (expect_true (have_monotonic))
-              time_update_monotonic (EV_A);
-            else
-#endif
-              {
-                ev_rt_now = ev_time ();
-                mn_now    = ev_rt_now;
-              }
+            time_update (EV_A_ 1e100);
 
             block = MAX_BLOCKTIME;
 
@@ -1473,10 +1483,10 @@ ev_loop (EV_P_ int flags)
 
         ++loop_count;
         backend_poll (EV_A_ block);
-      }
 
-      /* update ev_rt_now, do magic */
-      time_update (EV_A);
+        /* update ev_rt_now, do magic */
+        time_update (EV_A_ block);
+      }
 
       /* queue pending timers and reschedule them */
       timers_reify (EV_A); /* relative timers called last */
@@ -1548,14 +1558,15 @@ ev_clear_pending (EV_P_ void *w)
   W w_ = (W)w;
   int pending = w_->pending;
 
-  if (!pending)
+  if (expect_true (pending))
+    {
+      ANPENDING *p = pendings [ABSPRI (w_)] + pending - 1;
+      w_->pending = 0;
+      p->w = 0;
+      return p->events;
+    }
+  else
     return 0;
-
-  w_->pending = 0;
-  ANPENDING *p = pendings [ABSPRI (w_)] + pending - 1;
-  p->w = 0;
-
-  return p->events;
 }
 
 void inline_size
@@ -1584,7 +1595,7 @@ ev_stop (EV_P_ W w)
 
 /*****************************************************************************/
 
-void
+void noinline
 ev_io_start (EV_P_ ev_io *w)
 {
   int fd = w->fd;
@@ -1596,12 +1607,13 @@ ev_io_start (EV_P_ ev_io *w)
 
   ev_start (EV_A_ (W)w, 1);
   array_needsize (ANFD, anfds, anfdmax, fd + 1, anfds_init);
-  wlist_add ((WL *)&anfds[fd].head, (WL)w);
+  wlist_add (&anfds[fd].head, (WL)w);
 
-  fd_change (EV_A_ fd);
+  fd_change (EV_A_ fd, w->events & EV_IOFDSET | 1);
+  w->events &= ~EV_IOFDSET;
 }
 
-void
+void noinline
 ev_io_stop (EV_P_ ev_io *w)
 {
   clear_pending (EV_A_ (W)w);
@@ -1610,13 +1622,13 @@ ev_io_stop (EV_P_ ev_io *w)
 
   assert (("ev_io_start called with illegal fd (must stay constant after start!)", w->fd >= 0 && w->fd < anfdmax));
 
-  wlist_del ((WL *)&anfds[w->fd].head, (WL)w);
+  wlist_del (&anfds[w->fd].head, (WL)w);
   ev_stop (EV_A_ (W)w);
 
-  fd_change (EV_A_ w->fd);
+  fd_change (EV_A_ w->fd, 1);
 }
 
-void
+void noinline
 ev_timer_start (EV_P_ ev_timer *w)
 {
   if (expect_false (ev_is_active (w)))
@@ -1627,21 +1639,21 @@ ev_timer_start (EV_P_ ev_timer *w)
   assert (("ev_timer_start called with negative timer repeat value", w->repeat >= 0.));
 
   ev_start (EV_A_ (W)w, ++timercnt);
-  array_needsize (ev_timer *, timers, timermax, timercnt, EMPTY2);
-  timers [timercnt - 1] = w;
-  upheap ((WT *)timers, timercnt - 1);
+  array_needsize (WT, timers, timermax, timercnt, EMPTY2);
+  timers [timercnt - 1] = (WT)w;
+  upheap (timers, timercnt - 1);
 
   /*assert (("internal timer heap corruption", timers [((W)w)->active - 1] == w));*/
 }
 
-void
+void noinline
 ev_timer_stop (EV_P_ ev_timer *w)
 {
   clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
-  assert (("internal timer heap corruption", timers [((W)w)->active - 1] == w));
+  assert (("internal timer heap corruption", timers [((W)w)->active - 1] == (WT)w));
 
   {
     int active = ((W)w)->active;
@@ -1649,7 +1661,7 @@ ev_timer_stop (EV_P_ ev_timer *w)
     if (expect_true (--active < --timercnt))
       {
         timers [active] = timers [timercnt];
-        adjustheap ((WT *)timers, timercnt, active);
+        adjustheap (timers, timercnt, active);
       }
   }
 
@@ -1658,7 +1670,7 @@ ev_timer_stop (EV_P_ ev_timer *w)
   ev_stop (EV_A_ (W)w);
 }
 
-void
+void noinline
 ev_timer_again (EV_P_ ev_timer *w)
 {
   if (ev_is_active (w))
@@ -1666,7 +1678,7 @@ ev_timer_again (EV_P_ ev_timer *w)
       if (w->repeat)
         {
           ((WT)w)->at = mn_now + w->repeat;
-          adjustheap ((WT *)timers, timercnt, ((W)w)->active - 1);
+          adjustheap (timers, timercnt, ((W)w)->active - 1);
         }
       else
         ev_timer_stop (EV_A_ w);
@@ -1679,7 +1691,7 @@ ev_timer_again (EV_P_ ev_timer *w)
 }
 
 #if EV_PERIODIC_ENABLE
-void
+void noinline
 ev_periodic_start (EV_P_ ev_periodic *w)
 {
   if (expect_false (ev_is_active (w)))
@@ -1691,25 +1703,27 @@ ev_periodic_start (EV_P_ ev_periodic *w)
     {
       assert (("ev_periodic_start called with negative interval value", w->interval >= 0.));
       /* this formula differs from the one in periodic_reify because we do not always round up */
-      ((WT)w)->at += ceil ((ev_rt_now - ((WT)w)->at) / w->interval) * w->interval;
+      ((WT)w)->at = w->offset + ceil ((ev_rt_now - w->offset) / w->interval) * w->interval;
     }
+  else
+    ((WT)w)->at = w->offset;
 
   ev_start (EV_A_ (W)w, ++periodiccnt);
-  array_needsize (ev_periodic *, periodics, periodicmax, periodiccnt, EMPTY2);
-  periodics [periodiccnt - 1] = w;
-  upheap ((WT *)periodics, periodiccnt - 1);
+  array_needsize (WT, periodics, periodicmax, periodiccnt, EMPTY2);
+  periodics [periodiccnt - 1] = (WT)w;
+  upheap (periodics, periodiccnt - 1);
 
   /*assert (("internal periodic heap corruption", periodics [((W)w)->active - 1] == w));*/
 }
 
-void
+void noinline
 ev_periodic_stop (EV_P_ ev_periodic *w)
 {
   clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
-  assert (("internal periodic heap corruption", periodics [((W)w)->active - 1] == w));
+  assert (("internal periodic heap corruption", periodics [((W)w)->active - 1] == (WT)w));
 
   {
     int active = ((W)w)->active;
@@ -1717,14 +1731,14 @@ ev_periodic_stop (EV_P_ ev_periodic *w)
     if (expect_true (--active < --periodiccnt))
       {
         periodics [active] = periodics [periodiccnt];
-        adjustheap ((WT *)periodics, periodiccnt, active);
+        adjustheap (periodics, periodiccnt, active);
       }
   }
 
   ev_stop (EV_A_ (W)w);
 }
 
-void
+void noinline
 ev_periodic_again (EV_P_ ev_periodic *w)
 {
   /* TODO: use adjustheap and recalculation */
@@ -1737,7 +1751,7 @@ ev_periodic_again (EV_P_ ev_periodic *w)
 # define SA_RESTART 0
 #endif
 
-void
+void noinline
 ev_signal_start (EV_P_ ev_signal *w)
 {
 #if EV_MULTIPLICITY
@@ -1748,9 +1762,22 @@ ev_signal_start (EV_P_ ev_signal *w)
 
   assert (("ev_signal_start called with illegal signal number", w->signum > 0));
 
+  {
+#ifndef _WIN32
+    sigset_t full, prev;
+    sigfillset (&full);
+    sigprocmask (SIG_SETMASK, &full, &prev);
+#endif
+
+    array_needsize (ANSIG, signals, signalmax, w->signum, signals_init);
+
+#ifndef _WIN32
+    sigprocmask (SIG_SETMASK, &prev, 0);
+#endif
+  }
+
   ev_start (EV_A_ (W)w, 1);
-  array_needsize (ANSIG, signals, signalmax, w->signum, signals_init);
-  wlist_add ((WL *)&signals [w->signum - 1].head, (WL)w);
+  wlist_add (&signals [w->signum - 1].head, (WL)w);
 
   if (!((WL)w)->next)
     {
@@ -1766,14 +1793,14 @@ ev_signal_start (EV_P_ ev_signal *w)
     }
 }
 
-void
+void noinline
 ev_signal_stop (EV_P_ ev_signal *w)
 {
   clear_pending (EV_A_ (W)w);
   if (expect_false (!ev_is_active (w)))
     return;
 
-  wlist_del ((WL *)&signals [w->signum - 1].head, (WL)w);
+  wlist_del (&signals [w->signum - 1].head, (WL)w);
   ev_stop (EV_A_ (W)w);
 
   if (!signals [w->signum - 1].head)
@@ -1790,7 +1817,7 @@ ev_child_start (EV_P_ ev_child *w)
     return;
 
   ev_start (EV_A_ (W)w, 1);
-  wlist_add ((WL *)&childs [w->pid & (EV_PID_HASHSIZE - 1)], (WL)w);
+  wlist_add (&childs [w->pid & (EV_PID_HASHSIZE - 1)], (WL)w);
 }
 
 void
@@ -1800,7 +1827,7 @@ ev_child_stop (EV_P_ ev_child *w)
   if (expect_false (!ev_is_active (w)))
     return;
 
-  wlist_del ((WL *)&childs [w->pid & (EV_PID_HASHSIZE - 1)], (WL)w);
+  wlist_del (&childs [w->pid & (EV_PID_HASHSIZE - 1)], (WL)w);
   ev_stop (EV_A_ (W)w);
 }
 

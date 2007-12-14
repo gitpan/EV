@@ -92,7 +92,7 @@ kqueue_poll (EV_P_ ev_tstamp timeout)
   res = kevent (backend_fd, kqueue_changes, kqueue_changecnt, kqueue_events, kqueue_eventmax, &ts);
   kqueue_changecnt = 0;
 
-  if (res < 0)
+  if (expect_false (res < 0))
     { 
       if (errno != EINTR)
         syserr ("(libev) kevent");
@@ -153,8 +153,7 @@ kqueue_init (EV_P_ int flags)
 
   fcntl (backend_fd, F_SETFD, FD_CLOEXEC); /* not sure if necessary, hopefully doesn't hurt */
 
-  /* fudge *might* be zero from the documentation, but bsd docs are notoriously wrong */
-  backend_fudge  = 1e-3; /* needed to compensate for kevent returning early */
+  backend_fudge  = 0.;
   backend_modify = kqueue_modify;
   backend_poll   = kqueue_poll;
 

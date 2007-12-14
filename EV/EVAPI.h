@@ -29,8 +29,8 @@
 struct EVAPI {
   I32 ver;
   I32 rev;
-#define EV_API_VERSION 2
-#define EV_API_REVISION 1
+#define EV_API_VERSION 3
+#define EV_API_REVISION 0
 
   /* perl fh or fd int to fd */
   int (*sv_fileno) (SV *fh);
@@ -46,6 +46,8 @@ struct EVAPI {
   void (*ref)(EV_P);
   void (*unref)(EV_P);
   void (*once)(EV_P_ int fd, int events, ev_tstamp timeout, void (*cb)(int revents, void *arg), void *arg);
+  int  (*clear_pending)(EV_P_ void *);
+  void (*invoke)(EV_P_ void *, int);
   void (*io_start)(EV_P_ ev_io *);
   void (*io_stop) (EV_P_ ev_io *);
   void (*timer_start)(EV_P_ ev_timer *);
@@ -66,8 +68,6 @@ struct EVAPI {
   void (*prepare_stop) (EV_P_ ev_prepare *);
   void (*check_start)(EV_P_ ev_check *);
   void (*check_stop) (EV_P_ ev_check *);
-  int  (*clear_pending)(EV_P_ void *);
-  void (*invoke)(EV_P_ void *, int);
 };
 
 #if !EV_PROTOTYPES

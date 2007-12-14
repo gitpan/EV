@@ -1,5 +1,25 @@
 Revision history for Perl extension EV
 
+1.85 Fri Dec 14 20:32:40 CET 2007
+        - further optimise epoll backend by adding a heuristic that
+          avoids EPOLL_CTL_DEL calls if possible.
+	- EV::signal->start was not async-signal safe.
+        - fix some aliasing issues w.r.t. timers and periodics
+          (not relevant for perl).
+        - optimise start/stop when the fd hasn't changed.
+
+1.8  Tue Dec 11 22:17:46 CET 2007
+	- API version 3:0.
+	- reduced fudge factor to zero for select, poll, epoll
+          and kqueue: your system better be posix-compliant
+          even in its extensions :->
+        - improve long-term numerical stability in periodic watchers
+          by introducing a separate offset value instead of reusing at.
+        - recalculate real/monotonic clocks before blocking fully
+          to avoid blocking for longer than necessary.
+        - fix bugs in the heap functions. this rarely lead to illegal
+          heap orderings.
+
 1.72 Sat Dec  8 15:31:26 CET 2007
 	- add dummy loop arguments to some EVAPI functions
           so that clients can use EV_A and EV_DEFAULT.
