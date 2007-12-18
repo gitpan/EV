@@ -1,5 +1,9 @@
 Revision history for Perl extension EV
 
+1.86 Tue Dec 18 02:36:57 CET 2007
+	- fix memleak on loop destroy (not relevant for perl).
+        - add periodic->at methods.
+
 1.85 Fri Dec 14 20:32:40 CET 2007
         - further optimise epoll backend by adding a heuristic that
           avoids EPOLL_CTL_DEL calls if possible.

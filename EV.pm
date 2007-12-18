@@ -70,7 +70,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '1.85';
+   our $VERSION = '1.86';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -495,6 +495,10 @@ any time.
 =item $w->again
 
 Simply stops and starts the watcher again.
+
+=item $time = $w->at
+
+Return the time that the watcher is expected to trigger next.
 
 =back
 

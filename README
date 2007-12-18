@@ -411,6 +411,9 @@ BASIC INTERFACE
     $w->again
         Simply stops and starts the watcher again.
 
+    $time = $w->at
+        Return the time that the watcher is expected to trigger next.
+
    SIGNAL WATCHERS - signal me when a signal gets signalled!
     $w = EV::signal $signal, $callback
     $w = EV::signal_ns $signal, $callback
