@@ -14,6 +14,7 @@
 
 #define EV_COMMON				\
   int flags; /* cheap on 64 bit systems */	\
+  SV *loop;                                     \
   SV *self; /* contains this struct */		\
   SV *cb_sv, *fh, *data;
 
@@ -21,16 +22,25 @@
 # define EV_PROTOTYPES 0
 #endif
 
-#define EV_STANDALONE   1
-#define EV_MULTIPLICITY 0
+#ifndef EV_H
+# define EV_H <EV/ev.h>
+#endif
 
-#include <ev.h>
+#include EV_H
+
+#define EV_STANDALONE   1
+#define EV_MULTIPLICITY 1
 
 struct EVAPI {
   I32 ver;
   I32 rev;
-#define EV_API_VERSION 3
+#define EV_API_VERSION 4
 #define EV_API_REVISION 0
+
+  struct ev_loop *default_loop;
+  unsigned int supported_backends;
+  unsigned int recommended_backends;
+  unsigned int embeddable_backends;
 
   /* perl fh or fd int to fd */
   int (*sv_fileno) (SV *fh);
@@ -38,8 +48,13 @@ struct EVAPI {
   int (*sv_signum) (SV *fh);
 
   /* same as libev functions */
+  ev_tstamp (*time)(void);
+  void (*sleep)(ev_tstamp);
   ev_tstamp (*now)(EV_P);
-  ev_tstamp (*(time))(void);
+  struct ev_loop *(*loop_new)(unsigned int);
+  void (*loop_destroy)(EV_P);
+  void (*loop_fork)(EV_P);
+  unsigned int (*loop_count)(EV_P);
   unsigned int (*backend)(EV_P);
   void (*loop)(EV_P_ int flags);
   void (*unloop)(EV_P_ int how);
@@ -68,41 +83,62 @@ struct EVAPI {
   void (*prepare_stop) (EV_P_ ev_prepare *);
   void (*check_start)(EV_P_ ev_check *);
   void (*check_stop) (EV_P_ ev_check *);
+  void (*embed_start)(EV_P_ ev_embed *);
+  void (*embed_stop) (EV_P_ ev_embed *);
+  void (*embed_sweep)(EV_P_ ev_embed *);
+  void (*fork_start) (EV_P_ ev_fork *);
+  void (*fork_stop)  (EV_P_ ev_fork *);
 };
 
 #if !EV_PROTOTYPES
-# define sv_fileno(sv)         GEVAPI->sv_fileno (sv)
-# define sv_signum(sv)         GEVAPI->sv_signum (sv)
-# define ev_now(loop)          GEVAPI->now (loop)
-# define ev_time()             GEVAPI->(time) ()
-# define ev_backend(loop)      GEVAPI->backend (loop)
-# define ev_loop(flags)        GEVAPI->loop (flags)
-# define ev_unloop(how)        GEVAPI->unloop (how)
-# define ev_once(fd,events,timeout,cb,arg) GEVAPI->once ((fd), (events), (timeout), (cb), (arg))
-# define ev_io_start(w)        GEVAPI->io_start (w)
-# define ev_io_stop(w)         GEVAPI->io_stop  (w)
-# define ev_timer_start(w)     GEVAPI->timer_start (w)
-# define ev_timer_stop(w)      GEVAPI->timer_stop  (w)
-# define ev_timer_again(w)     GEVAPI->timer_again (w)
-# define ev_periodic_start(w)  GEVAPI->periodic_start (w)
-# define ev_periodic_stop(w)   GEVAPI->periodic_stop  (w)
-# define ev_signal_start(w)    GEVAPI->signal_start (w)
-# define ev_signal_stop(w)     GEVAPI->signal_stop  (w)
-# define ev_idle_start(w)      GEVAPI->idle_start (w)
-# define ev_idle_stop(w)       GEVAPI->idle_stop  (w)
-# define ev_prepare_start(w)   GEVAPI->prepare_start (w)
-# define ev_prepare_stop(w)    GEVAPI->prepare_stop  (w)
-# define ev_check_start(w)     GEVAPI->check_start (w)
-# define ev_check_stop(w)      GEVAPI->check_stop  (w)
-# define ev_child_start(w)     GEVAPI->child_start (w)
-# define ev_child_stop(w)      GEVAPI->child_stop  (w)
-# define ev_stat_start(w)      GEVAPI->stat_start (w)
-# define ev_stat_stop(w)       GEVAPI->stat_stop  (w)
-# define ev_stat_stat(w)       GEVAPI->stat_stat  (w)
-# define ev_ref(loop)          GEVAPI->ref   (loop)
-# define ev_unref(loop)        GEVAPI->unref (loop)
-# define ev_clear_pending(w)   GEVAPI->clear_pending (w)
-# define ev_invoke(w,rev)      GEVAPI->invoke (w, rev)
+# undef EV_DEFAULT
+# undef EV_DEFAULT_
+# undef EV_A_
+# define EV_DEFAULT                GEVAPI->default_loop
+# define ev_supported_backends()   GEVAPI->supported_backends
+# define ev_recommended_backends() GEVAPI->recommended_backends
+# define ev_embeddable_backends()  GEVAPI->embeddable_backends
+
+# define sv_fileno(sv)             GEVAPI->sv_fileno (sv)
+# define sv_signum(sv)             GEVAPI->sv_signum (sv)
+# define ev_time()                 GEVAPI->(time) ()
+# define ev_sleep()                GEVAPI->(sleep) ()
+# define ev_loop_new(flags)        GEVAPI->loop_new ((flags))
+# define ev_loop_destroy(loop)     GEVAPI->loop_destroy ((loop))
+# define ev_loop_fork(loop)        GEVAPI->loop_fork ((loop))
+# define ev_loop_count(loop)       GEVAPI->loop_count ((loop))
+# define ev_now(loop)              GEVAPI->now ((loop))
+# define ev_backend(loop)          GEVAPI->backend ((loop))
+# define ev_loop(l,flags)          GEVAPI->loop ((l), (flags))
+# define ev_unloop(loop,how)       GEVAPI->unloop ((loop), (how))
+# define ev_once(loop,fd,events,timeout,cb,arg) GEVAPI->once ((loop), (fd), (events), (timeout), (cb), (arg))
+# define ev_io_start(l,w)          GEVAPI->io_start ((l), (w))
+# define ev_io_stop(l,w)           GEVAPI->io_stop  ((l), (w))
+# define ev_timer_start(l,w)       GEVAPI->timer_start ((l), (w))
+# define ev_timer_stop(l,w)        GEVAPI->timer_stop  ((l), (w))
+# define ev_timer_again(l,w)       GEVAPI->timer_again ((l), (w))
+# define ev_periodic_start(l,w)    GEVAPI->periodic_start ((l), (w))
+# define ev_periodic_stop(l,w)     GEVAPI->periodic_stop  ((l), (w))
+# define ev_signal_start(l,w)      GEVAPI->signal_start ((l), (w))
+# define ev_signal_stop(l,w)       GEVAPI->signal_stop  ((l), (w))
+# define ev_idle_start(l,w)        GEVAPI->idle_start ((l), (w))
+# define ev_idle_stop(l,w)         GEVAPI->idle_stop  ((l), (w))
+# define ev_prepare_start(l,w)     GEVAPI->prepare_start ((l), (w))
+# define ev_prepare_stop(l,w)      GEVAPI->prepare_stop  ((l), (w))
+# define ev_check_start(l,w)       GEVAPI->check_start ((l), (w))
+# define ev_check_stop(l,w)        GEVAPI->check_stop  ((l), (w))
+# define ev_child_start(l,w)       GEVAPI->child_start ((l), (w))
+# define ev_child_stop(l,w)        GEVAPI->child_stop  ((l), (w))
+# define ev_stat_start(l,w)        GEVAPI->stat_start ((l), (w))
+# define ev_stat_stop(l,w)         GEVAPI->stat_stop  ((l), (w))
+# define ev_stat_stat(l,w)         GEVAPI->stat_stat  ((l), (w))
+# define ev_embed_start(l,w)       GEVAPI->embed_start ((l), (w))
+# define ev_embed_stop(l,w)        GEVAPI->embed_stop  ((l), (w))
+# define ev_embed_sweep(l,w)       GEVAPI->embed_sweep ((l), (w))
+# define ev_ref(loop)              GEVAPI->ref   (loop)
+# define ev_unref(loop)            GEVAPI->unref (loop)
+# define ev_clear_pending(l,w)     GEVAPI->clear_pending ((l), (w))
+# define ev_invoke(l,w,rev)        GEVAPI->invoke (l, w, rev)
 #endif
 
 static struct EVAPI *GEVAPI;

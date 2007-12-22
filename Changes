@@ -1,14 +1,35 @@
 Revision history for Perl extension EV
 
+2.0  Sat Dec 22 17:47:03 CET 2007
+	- no longer force kqueue when enabled, enable it
+          on more systems (as its now by default not used on most).
+	- expose fork watchers.
+        - switch to libev's MULTIPLICITY API.
+        - use a slightly different include file name strategy.
+        - get rid of (unused) libevent emulation.
+        - 5% watcher management speedup due to callback optimisation
+          when inline closures are used, 5% slowdown due to multiplicity.
+        - very minimal support for dynamic event loops and embed watchers.
+        - fix name of prepare start/stop methods.
+        - create and export EV::sleep and EV::set_*_collect_interval.
+        - fix typos in manpage (Alex Efros).
+        - (libev) new ev_sleep, ev_set_(io|timeout)_collect_interval.
+        - (libev) removed epoll from embeddable fd set.
+        - (libev) fix embed watchers.
+	- (libev) renamed ev_embed.loop to other.
+	- (libev) added exported Symbol tables.
+        - (libev) undefine member wrapper macros at the end of ev.c.
+        - (libev) respect EV_H in ev++.h.
+
 1.86 Tue Dec 18 02:36:57 CET 2007
-	- fix memleak on loop destroy (not relevant for perl).
+	- (libev) fix memleak on loop destroy (not relevant for perl).
         - add periodic->at methods.
 
 1.85 Fri Dec 14 20:32:40 CET 2007
         - further optimise epoll backend by adding a heuristic that
           avoids EPOLL_CTL_DEL calls if possible.
 	- EV::signal->start was not async-signal safe.
-        - fix some aliasing issues w.r.t. timers and periodics
+        - (libev) fix some aliasing issues w.r.t. timers and periodics
           (not relevant for perl).
         - optimise start/stop when the fd hasn't changed.
 
@@ -111,7 +132,7 @@ Revision history for Perl extension EV
         - many minor fixes.
 
 0.6  Thu Nov  8 18:23:43 CET 2007
-	- better native win32 support (not relevant for perl usually).
+	- (libev) better native win32 support.
         - fix idle watchers.
         - implement and document periodic reschedule callbacks.
         - do not run dns test on !linux platforms (actually to exclude win32).

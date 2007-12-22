@@ -16,6 +16,8 @@ t/02_once.t
 t/03_keepalive.t
 t/04_stat.t
 t/05_priority.t
+t/06_loop_once.t
+t/07_loop_timer.t
 
 libev/LICENSE
 libev/README
@@ -31,6 +33,4 @@ libev/ev_poll.c
 libev/ev_kqueue.c
 libev/ev_port.c
 
-libev/event.h
-libev/event.c
 META.yml                                 Module meta-data (added by MakeMaker)

@@ -28,7 +28,7 @@ for my $d ($extra, @INC) {
 
 sub ev_args {
    my %arg = @_;
-   $arg{INC} .= " -I$installsitearch/EV";
+   $arg{INC} .= " -I$installsitearch/EV -I$installsitearch";
    %arg;
 }
 

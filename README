@@ -61,6 +61,42 @@ DESCRIPTION
     backends, or how to force a specific backend with "LIBEV_FLAGS", or just
     about in any case because it has much more detailed information.
 
+EVENT LOOPS
+    EV supports multiple event loops: There is a single "default event loop"
+    that can handle everything including signals and child watchers, and any
+    number of "dynamic event loops" that can use different backends (with
+    various limitations), but no child and signal watchers.
+
+    You do not have to do anything to create the default event loop: When
+    the module is loaded a suitable backend is selected on the premise of
+    selecting a working backend (which for example rules out kqueue on most
+    BSDs). Modules should, unless they have "special needs" always use the
+    default loop as this is fastest (perl-wise), best supported by other
+    modules (e.g. AnyEvent or Coro) and most portable event loop.
+
+    For specific programs you can create additional event loops dynamically.
+
+    $loop = new EV::loop [$flags]
+        Create a new event loop as per the specified flags. Please refer to
+        the "ev_loop_new ()" function description in the libev documentation
+        (<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#GLOBAL_FUNCTI
+        ONS>) for more info.
+
+        The loop will automatically be destroyed when it is no longer
+        referenced by any watcher and the loop object goes out of scope.
+
+        Using "EV::FLAG_FORKCHECK" is recommended, as only the default event
+        loop is protected by this module.
+
+    $loop->loop_fork
+        Must be called after a fork in the child, before entering or
+        continuing the event loop. An alternative is to use
+        "EV::FLAG_FORKCHECK" which calls this fucntion automatically, at
+        some performance loss (refer to the libev documentation).
+
+    $loop = EV::default_loop [$flags]
+        Return the default loop (which is a singleton object).
+
 BASIC INTERFACE
     $EV::DIED
         Must contain a reference to a function that is called when a
@@ -69,19 +105,33 @@ BASIC INTERFACE
 
         If this callback throws an exception it will be silently ignored.
 
+    $flags = EV::supported_backends
+    $flags = EV::recommended_backends
+    $flags = EV::embeddable_backends
+        Returns the set (see "EV::BACKEND_*" flags) of backends supported by
+        this instance of EV, the set of recommended backends (supposed to be
+        good) for this platform and the set of embeddable backends (see
+        EMBED WATCHERS).
+
+    EV::sleep $seconds
+        Block the process for the given number of (fractional) seconds.
+
     $time = EV::time
         Returns the current time in (fractional) seconds since the epoch.
 
     $time = EV::now
+    $time = $loop->now
         Returns the time the last event loop iteration has been started.
         This is the time that (relative) timers are based on, and refering
         to it is usually faster then calling EV::time.
 
-    $method = EV::method
+    $backend = EV::backend
+    $backend = $loop->backend
         Returns an integer describing the backend used by libev
         (EV::METHOD_SELECT or EV::METHOD_EPOLL).
 
     EV::loop [$flags]
+    $loop->loop ([$flags])
         Begin checking for events and calling callbacks. It returns when a
         callback calls EV::unloop.
 
@@ -92,6 +142,7 @@ BASIC INTERFACE
            EV::LOOP_NONBLOCK  do not block at all (fetch/handle events but do not wait)
 
     EV::unloop [$how]
+    $loop->unloop ([$how])
         When called with no arguments or an argument of EV::UNLOOP_ONE,
         makes the innermost call to EV::loop return.
 
@@ -99,10 +150,12 @@ BASIC INTERFACE
         EV::loop will return as fast as possible.
 
     $count = EV::loop_count
+    $count = $loop->loop_count
         Return the number of times the event loop has polled for new events.
         Sometiems useful as a generation counter.
 
     EV::once $fh_or_undef, $events, $timeout, $cb->($revents)
+    $loop->once ($fh_or_undef, $events, $timeout, $cb->($revents))
         This function rolls together an I/O and a timer watcher for a single
         one-shot event without the need for managing a watcher object.
 
@@ -117,7 +170,7 @@ BASIC INTERFACE
 
         When an error occurs or either the timeout or I/O watcher triggers,
         then the callback will be called with the received event set (in
-        general you can expect it to be a combination of "EV:ERROR",
+        general you can expect it to be a combination of "EV::ERROR",
         "EV::READ", "EV::WRITE" and "EV::TIMEOUT").
 
         EV::once doesn't return anything: the watchers stay active till
@@ -125,6 +178,7 @@ BASIC INTERFACE
         the callback invoked.
 
     EV::feed_fd_event ($fd, $revents)
+    $loop->feed_fd_event ($fd, $revents)
         Feed an event on a file descriptor into EV. EV will react to this
         call as if the readyness notifications specified by $revents (a
         combination of "EV::READ" and "EV::WRITE") happened on the file
@@ -134,14 +188,24 @@ BASIC INTERFACE
         Feed a signal event into EV. EV will react to this call as if the
         signal specified by $signal had occured.
 
-  WATCHER OBJECTS
+    EV::set_io_collect_interval $time
+    $loop->set_io_collect_interval ($time)
+    EV::set_timeout_collect_interval $time
+    $loop->set_timeout_collect_interval ($time)
+        These advanced functions set the minimum block interval when polling
+        for I/O events and the minimum wait interval for timer events. See
+        the libev documentation at
+        <http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#FUNCTIONS_CONT
+        ROLLING_THE_EVENT_LOOP> for a more detailed discussion.
+
+WATCHER OBJECTS
     A watcher is an object that gets created to record your interest in some
     event. For instance, if you want to wait for STDIN to become readable,
     you would create an EV::io watcher for that:
 
       my $watcher = EV::io *STDIN, EV::READ, sub {
          my ($watcher, $revents) = @_;
-         warn "yeah, STDIN should not be readable without blocking!\n"
+         warn "yeah, STDIN should now be readable without blocking!\n"
       };
 
     All watchers can be active (waiting for events) or inactive (paused).
@@ -222,10 +286,9 @@ BASIC INTERFACE
         as if the watcher had received the given $revents mask.
 
     $revents = $w->clear_pending
-        If the watcher is pending, this function returns clears its pending
-        status and returns its $revents bitset (as if its callback was
-        invoked). If the watcher isn't pending it does nothing and returns
-        0.
+        If the watcher is pending, this function clears its pending status
+        and returns its $revents bitset (as if its callback was invoked). If
+        the watcher isn't pending it does nothing and returns 0.
 
     $previous_state = $w->keepalive ($bool)
         Normally, "EV::loop" will return when there are no active watchers
@@ -235,7 +298,7 @@ BASIC INTERFACE
         all your jobs are finished (or they forgot to register some watchers
         for their task :).
 
-        Sometimes, however, this gets in your way, for example when you the
+        Sometimes, however, this gets in your way, for example when the
         module that calls "EV::loop" (usually the main program) is not the
         same module as a long-living watcher (for example a DNS client
         module written by somebody else even). Then you might want any
@@ -255,14 +318,19 @@ BASIC INTERFACE
 
            my $udp_socket = ...
            my $udp_watcher = EV::io $udp_socket, EV::READ, sub { ... };
-           $udp_watcher->keepalive (0);
+           $1000udp_watcher->keepalive (0);
 
-  WATCHER TYPES
+    $loop = $w->loop
+        Return the loop that this watcher is attached to.
+
+WATCHER TYPES
     Each of the following subsections describes a single watcher type.
 
    I/O WATCHERS - is this file descriptor readable or writable?
     $w = EV::io $fileno_or_fh, $eventmask, $callback
     $w = EV::io_ns $fileno_or_fh, $eventmask, $callback
+    $w = $loop->io ($fileno_or_fh, $eventmask, $callback)
+    $w = $loop->io_ns ($fileno_or_fh, $eventmask, $callback)
         As long as the returned watcher object is alive, call the $callback
         when at least one of events specified in $eventmask occurs.
 
@@ -289,6 +357,8 @@ BASIC INTERFACE
    TIMER WATCHERS - relative and optionally repeating timeouts
     $w = EV::timer $after, $repeat, $callback
     $w = EV::timer_ns $after, $repeat, $callback
+    $w = $loop->timer ($after, $repeat, $callback)
+    $w = $loop->timer_ns ($after, $repeat, $callback)
         Calls the callback after $after seconds (which may be fractional).
         If $repeat is non-zero, the timer will be restarted (with the
         $repeat value as $after) after the callback returns.
@@ -334,6 +404,8 @@ BASIC INTERFACE
    PERIODIC WATCHERS - to cron or not to cron?
     $w = EV::periodic $at, $interval, $reschedule_cb, $callback
     $w = EV::periodic_ns $at, $interval, $reschedule_cb, $callback
+    $w = $loop->periodic ($at, $interval, $reschedule_cb, $callback)
+    $w = $loop->periodic_ns ($at, $interval, $reschedule_cb, $callback)
         Similar to EV::timer, but is not based on relative timeouts but on
         absolute times. Apart from creating "simple" timers that trigger
         "at" the specified time, it can also be used for non-drifting
@@ -442,6 +514,8 @@ BASIC INTERFACE
    CHILD WATCHERS - watch out for process status changes
     $w = EV::child $pid, $callback
     $w = EV::child_ns $pid, $callback
+    $w = $loop->child ($pid, $callback)
+    $w = $loop->child_ns ($pid, $callback)
         Call the callback when a status change for pid $pid (or any pid if
         $pid is 0) has been received. More precisely: when the process
         receives a "SIGCHLD", EV will fetch the outstanding exit/wait status
@@ -481,6 +555,8 @@ BASIC INTERFACE
    STAT WATCHERS - did the file attributes just change?
     $w = EV::stat $path, $interval, $callback
     $w = EV::stat_ns $path, $interval, $callback
+    $w = $loop->stat ($path, $interval, $callback)
+    $w = $loop->stat_ns ($path, $interval, $callback)
         Call the callback when a file status change has been detected on
         $path. The $path does not need to exist, changing from "path exists"
         to "path does not exist" is a status change like any other.
@@ -550,6 +626,8 @@ BASIC INTERFACE
    IDLE WATCHERS - when you've got nothing better to do...
     $w = EV::idle $callback
     $w = EV::idle_ns $callback
+    $w = $loop->idle ($callback)
+    $w = $loop->idle_ns ($callback)
         Call the callback when there are no other pending watchers of the
         same or higher priority (excluding check, prepare and other idle
         watchers of the same or lower priority, of course). They are called
@@ -575,6 +653,8 @@ BASIC INTERFACE
    PREPARE WATCHERS - customise your event loop!
     $w = EV::prepare $callback
     $w = EV::prepare_ns $callback
+    $w = $loop->prepare ($callback)
+    $w = $loop->prepare_ns ($callback)
         Call the callback just before the process would block. You can still
         create/modify any watchers at this point.
 
@@ -586,6 +666,8 @@ BASIC INTERFACE
    CHECK WATCHERS - customise your event loop even more!
     $w = EV::check $callback
     $w = EV::check_ns $callback
+    $w = $loop->check ($callback)
+    $w = $loop->check_ns ($callback)
         Call the callback just after the process wakes up again (after it
         has gathered events), but before any other callbacks have been
         invoked.
@@ -644,10 +726,51 @@ BASIC INTERFACE
 
     $w = EV::fork $callback
     $w = EV::fork_ns $callback
+    $w = $loop->fork ($callback)
+    $w = $loop->fork_ns ($callback)
         Call the callback before the event loop is resumed in the child
         process after a fork.
 
         The "fork_ns" variant doesn't start (activate) the newly created
+        watcher.
+
+   EMBED WATCHERS - when one backend isn't enough...
+    This is a rather advanced watcher type that lets you embed one event
+    loop into another (currently only IO events are supported in the
+    embedded loop, other types of watchers might be handled in a delayed or
+    incorrect fashion and must not be used).
+
+    See the libev documentation at
+    <http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#code_ev_embed_code
+    _when_one_backend_> for more details.
+
+    In short, this watcher is most useful on BSD systems without working
+    kqueue to still be able to handle a large number of sockets:
+
+      my $socket_loop;
+
+      # check wether we use SELECT or POLL _and_ KQUEUE is supported
+      if (
+        (EV::backend & (EV::BACKEND_POLL | EV::BACKEND_SELECT))
+        && (EV::supported_backends & EV::embeddable_backends & EV::BACKEND_KQUEUE)
+      ) {
+        # use kqueue for sockets
+        $socket_loop = new EV::Loop EV::BACKEND_KQUEUE | EV::FLAG_NOENV;
+      }
+
+      # use the default loop otherwise
+      $socket_loop ||= EV::default_loop;
+
+    $w = EV::embed $otherloop, $callback
+    $w = EV::embed_ns $otherloop, $callback
+    $w = $loop->embed ($otherloop, $callback)
+    $w = $loop->embed_ns ($otherloop, $callback)
+        Call the callback when the embedded event loop ($otherloop) has any
+        I/O activity. The $callback should alwas be specified as "undef" in
+        this version of EV, which means the embedded event loop will be
+        managed automatically.
+
+        The "embed_ns" variant doesn't start (activate) the newly created
         watcher.
 
 PERL SIGNALS
@@ -665,8 +788,8 @@ PERL SIGNALS
 
        my $async_check = EV::check sub { };
 
-    This ensures that perl shortly gets into control for a short time, and
-    also ensures slower overall operation.
+    This ensures that perl gets into control for a short time to handle any
+    pending signals, and also ensures (slightly) slower overall operation.
 
 THREADS
     Threads are not supported by this module in any way. Perl pseudo-threads
@@ -691,8 +814,9 @@ FORK
     course.
 
 SEE ALSO
-    EV::ADNS (asynchronous dns), Glib::EV (makes Glib/Gtk2 use EV as event
-    loop), Coro::EV (efficient coroutines with EV).
+    EV::ADNS (asynchronous DNS), Glib::EV (makes Glib/Gtk2 use EV as event
+    loop), EV::Glib (embed Glib into EV), Coro::EV (efficient coroutines
+    with EV), Net::SNMP::EV (asynchronous SNMP).
 
 AUTHOR
      Marc Lehmann <schmorp@schmorp.de>

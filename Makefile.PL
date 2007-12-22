@@ -40,7 +40,8 @@ can take advantage of this clock source to detect time jumps
 reliably. Unfortunately, some systems are bound to be broken, so you can
 disable this here: you can completely disable the detection and use of
 the monotonic clock by answering 'n' here. Support for this clock type
-will otherwise be autodetected at both compile- and runtime.
+will otherwise be autodetected at both compile- and runtime. (this setting
+currently affects the use of nanosleep over select as well).
 
 EOF
 
@@ -142,16 +143,16 @@ safe fallback to other methods when it cannot be used.
 Note that kqueue is broken on most operating systems, so it defaults to
 'n' on everything but netbsd. Here is what we know:
 
-NetBSD:  working in at least 3.1. Yeah! :)
+NetBSD:  partially working in at least 3.1. Yeah! :)
 FreeBSD: broken on at least 6.2-STABLE,
-         sockets and pipes *might* work, ptys definitely don't.
+         sockets *likely* work, ptys definitely don't.
 OpenBSD: reports indicate that it likely doesn't work
          (similar problems as on FreeBSD).
-OS X:    completely, utterly broken on at least <= 10.5.
+OS X:    completely, utterly broken on at least < 10.5.
 
 EOF
 
-my $can_kqueue = $^O =~ /netbsd/i && -e "/usr/include/sys/event.h";
+my $can_kqueue = -e "/usr/include/sys/event.h";
 
 $DEFINE .= " -DEV_USE_KQUEUE=" . (0 + (prompt ("Enable kqueue backend (y/n)?", $can_kqueue ? "y" : "n") =~ /[yY]/));
 
@@ -218,7 +219,7 @@ WriteMakefile(
     depend => {
        "EV.c" => "EV/EVAPI.h "
                . "libev/ev.c libev/ev.h libev/ev_epoll.c libev/ev_select.c libev/ev_kqueue.c libev/ev_poll.c "
-               . "libev/event.h libev/event.c libev/ev_vars.h libev/ev_wrap.h",
+               . "libev/ev_vars.h libev/ev_wrap.h",
     },
     INC       => "-Ilibev",
     DEFINE    => "$DEFINE",
