@@ -43,13 +43,13 @@
 #define START(type,w)				\
   do {						\
     UNREF (w);					\
-    ev_ ## type ## _start (e_loop (w), w);		\
+    ev_ ## type ## _start (e_loop (w), w);	\
   } while (0)
 
 #define STOP(type,w)				\
   do {						\
     REF (w);					\
-    ev_ ## type ## _stop (e_loop (w), w);		\
+    ev_ ## type ## _stop (e_loop (w), w);	\
   } while (0)
 
 #define RESET(type,w,seta)			\

@@ -1,4 +1,9 @@
-Revision history for Perl extension EV
+Revision history for Perl extension EV and the embedded libev library
+
+2.01 Mon Dec 31 01:59:19 CET 2007
+	- found a minor problem in the testsuite that is only
+          caught by new Test::Harness versions (reported by Andreas
+          König).
 
 2.0  Sat Dec 22 17:47:03 CET 2007
 	- no longer force kqueue when enabled, enable it
@@ -13,24 +18,14 @@ Revision history for Perl extension EV
         - fix name of prepare start/stop methods.
         - create and export EV::sleep and EV::set_*_collect_interval.
         - fix typos in manpage (Alex Efros).
-        - (libev) new ev_sleep, ev_set_(io|timeout)_collect_interval.
-        - (libev) removed epoll from embeddable fd set.
-        - (libev) fix embed watchers.
-	- (libev) renamed ev_embed.loop to other.
-	- (libev) added exported Symbol tables.
-        - (libev) undefine member wrapper macros at the end of ev.c.
-        - (libev) respect EV_H in ev++.h.
 
 1.86 Tue Dec 18 02:36:57 CET 2007
-	- (libev) fix memleak on loop destroy (not relevant for perl).
         - add periodic->at methods.
 
 1.85 Fri Dec 14 20:32:40 CET 2007
         - further optimise epoll backend by adding a heuristic that
           avoids EPOLL_CTL_DEL calls if possible.
 	- EV::signal->start was not async-signal safe.
-        - (libev) fix some aliasing issues w.r.t. timers and periodics
-          (not relevant for perl).
         - optimise start/stop when the fd hasn't changed.
 
 1.8  Tue Dec 11 22:17:46 CET 2007

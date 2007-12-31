@@ -54,5 +54,5 @@ for my $i (1..125) {
 EV::loop;
 print "ok 1\n";
 $l->loop;
-print "ok 6002\n";
+print "ok 752\n";
 
