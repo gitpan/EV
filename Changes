@@ -1,5 +1,9 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.0  Mon Jan 28 13:23:11 CET 2008
+	- upgrade to libev-3.0.
+        - change child handler to incorporate tracing flag.
+
 2.01 Mon Dec 31 01:59:19 CET 2007
 	- found a minor problem in the testsuite that is only
           caught by new Test::Harness versions (reported by Andreas

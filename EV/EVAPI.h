@@ -13,7 +13,7 @@
 #endif
 
 #define EV_COMMON				\
-  int flags; /* cheap on 64 bit systems */	\
+  int e_flags; /* cheap on 64 bit systems */	\
   SV *loop;                                     \
   SV *self; /* contains this struct */		\
   SV *cb_sv, *fh, *data;

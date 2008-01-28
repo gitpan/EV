@@ -37,7 +37,7 @@ EV - perl interface to libev, a high performance full-featured event loop
   
   # CHILD/PID STATUS CHANGES
 
-  my $w = EV::child 666, sub {
+  my $w = EV::child 666, 0, sub {
      my ($w, $revents) = @_;
      my $status = $w->rstatus;
   };
@@ -70,7 +70,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '2.01';
+   our $VERSION = '3.0';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -646,16 +646,18 @@ optionally set a new one.
 
 =over 4
 
-=item $w = EV::child $pid, $callback
+=item $w = EV::child $pid, $trace, $callback
 
-=item $w = EV::child_ns $pid, $callback
+=item $w = EV::child_ns $pid, $trace, $callback
 
-=item $w = $loop->child ($pid, $callback)
+=item $w = $loop->child ($pid, $trace, $callback)
 
-=item $w = $loop->child_ns ($pid, $callback)
+=item $w = $loop->child_ns ($pid, $trace, $callback)
 
-Call the callback when a status change for pid C<$pid> (or any pid if
-C<$pid> is 0) has been received. More precisely: when the process receives
+Call the callback when a status change for pid C<$pid> (or any pid
+if C<$pid> is 0) has been received (a status change happens when the
+process terminates or is killed, or, when trace is true, additionally when
+it is stopped or continued). More precisely: when the process receives
 a C<SIGCHLD>, EV will fetch the outstanding exit/wait status for all
 changed/zombie children and call the callback.
 
@@ -672,14 +674,12 @@ called.
 
 The C<child_ns> variant doesn't start (activate) the newly created watcher.
 
-=item $w->set ($pid)
+=item $w->set ($pid, $trace)
 
 Reconfigures the watcher, see the constructor above for details. Can be called at
 any time.
 
 =item $current_pid = $w->pid
-
-=item $old_pid = $w->pid ($new_pid)
 
 Returns the previously set process id and optionally set a new one.
 

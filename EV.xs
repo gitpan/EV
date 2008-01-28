@@ -31,12 +31,12 @@
 #define WFLAG_KEEPALIVE 1
 
 #define UNREF(w)				\
-  if (!((w)->flags & WFLAG_KEEPALIVE)		\
+  if (!((w)->e_flags & WFLAG_KEEPALIVE)		\
       && !ev_is_active (w))			\
     ev_unref (e_loop (w));
 
 #define REF(w)					\
-  if (!((w)->flags & WFLAG_KEEPALIVE)		\
+  if (!((w)->e_flags & WFLAG_KEEPALIVE)		\
       && ev_is_active (w))			\
     ev_ref (e_loop (w));
 
@@ -140,12 +140,12 @@ e_new (int size, SV *cb_sv, SV *loop)
 
   ev_init (w, e_cb);
 
-  w->loop  = SvREFCNT_inc (SvRV (loop));
-  w->flags = WFLAG_KEEPALIVE;
-  w->data  = 0;
-  w->fh    = 0;
-  w->cb_sv = SvTEMP (cb_sv) && SvREFCNT (cb_sv) == 1 ? SvREFCNT_inc (cb_sv) : newSVsv (cb_sv);
-  w->self  = self;
+  w->loop    = SvREFCNT_inc (SvRV (loop));
+  w->e_flags = WFLAG_KEEPALIVE;
+  w->data    = 0;
+  w->fh      = 0;
+  w->cb_sv   = SvTEMP (cb_sv) && SvREFCNT (cb_sv) == 1 ? SvREFCNT_inc (cb_sv) : newSVsv (cb_sv);
+  w->self    = self;
 
   return (void *)w;
 }
@@ -489,7 +489,7 @@ void ev_set_timeout_collect_interval (NV interval)
 void ev_loop (int flags = 0)
 	C_ARGS: evapi.default_loop, flags
 
-void ev_unloop (int how = 1)
+void ev_unloop (int how = EVUNLOOP_ONE)
 	C_ARGS: evapi.default_loop, how
 
 void ev_feed_fd_event (int fd, int revents = EV_NONE)
@@ -604,12 +604,12 @@ ev_fork *fork (SV *cb)
 	OUTPUT:
         RETVAL
 
-ev_child *child (int pid, SV *cb)
+ev_child *child (int pid, int trace, SV *cb)
 	ALIAS:
         child_ns = 1
 	CODE:
         RETVAL = e_new (sizeof (ev_child), cb, default_loop_sv);
-        ev_child_set (RETVAL, pid);
+        ev_child_set (RETVAL, pid, trace);
         if (!ix) START (child, RETVAL);
 	OUTPUT:
         RETVAL
@@ -674,13 +674,13 @@ void ev_feed_event (ev_watcher *w, int revents = EV_NONE)
 int keepalive (ev_watcher *w, int new_value = 0)
 	CODE:
 {
-        RETVAL = w->flags & WFLAG_KEEPALIVE;
+        RETVAL = w->e_flags & WFLAG_KEEPALIVE;
         new_value = new_value ? WFLAG_KEEPALIVE : 0;
 
-        if (items > 1 && ((new_value ^ w->flags) & WFLAG_KEEPALIVE))
+        if (items > 1 && ((new_value ^ w->e_flags) & WFLAG_KEEPALIVE))
           {
             REF (w);
-            w->flags = (w->flags & ~WFLAG_KEEPALIVE) | new_value;
+            w->e_flags = (w->e_flags & ~WFLAG_KEEPALIVE) | new_value;
             UNREF (w);
           }
 }
@@ -997,27 +997,18 @@ void DESTROY (ev_child *w)
         STOP (child, w);
         e_destroy (w);
 
-void set (ev_child *w, int pid)
+void set (ev_child *w, int pid, int trace)
 	CODE:
-        RESET (child, w, (w, pid));
+        RESET (child, w, (w, pid, trace));
 
-int pid (ev_child *w, int new_pid = 0)
-	CODE:
-{
-        RETVAL = w->pid;
-
-        if (items > 1)
-          RESET (child, w, (w, new_pid));
-}
-	OUTPUT:
-        RETVAL
-
-
-int rstatus (ev_child *w)
+int pid (ev_child *w)
 	ALIAS:
-        rpid = 1
+        rpid    = 1
+        rstatus = 2
 	CODE:
-        RETVAL = ix ? w->rpid : w->rstatus;
+        RETVAL = ix == 0 ? w->pid
+               : ix == 1 ? w->rpid
+               :           w->rstatus;
 	OUTPUT:
         RETVAL
 
@@ -1298,12 +1289,12 @@ ev_fork *fork (struct ev_loop *loop, SV *cb)
 	OUTPUT:
         RETVAL
 
-ev_child *child (struct ev_loop *loop, int pid, SV *cb)
+ev_child *child (struct ev_loop *loop, int pid, int trace, SV *cb)
 	ALIAS:
         child_ns = 1
 	CODE:
         RETVAL = e_new (sizeof (ev_child), cb, ST (0));
-        ev_child_set (RETVAL, pid);
+        ev_child_set (RETVAL, pid, trace);
         if (!ix) START (child, RETVAL);
 	OUTPUT:
         RETVAL
