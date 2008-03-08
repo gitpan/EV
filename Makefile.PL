@@ -140,8 +140,11 @@ Similarly to the epoll backend above, EV can take advantage of kqueue on
 many BSD systems. Support for kqueue will be detected at runtime, with a
 safe fallback to other methods when it cannot be used.
 
-Note that kqueue is broken on most operating systems, so it defaults to
-'n' on everything but netbsd. Here is what we know:
+Note that kqueue is broken on most operating systems, so by default it
+won't be used on many platforms, but you can still create your own event
+loop with qkueue backend.
+
+Here is what we know:
 
 NetBSD:  partially working in at least 3.1. Yeah! :)
 FreeBSD: broken on at least 6.2-STABLE,

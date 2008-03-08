@@ -70,7 +70,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.0';
+   our $VERSION = '3.1';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -86,6 +86,7 @@ BEGIN {
 @EV::Check::ISA    =
 @EV::Embed::ISA    =
 @EV::Fork::ISA     =
+@EV::Async::ISA    =
    "EV::Watcher";
 
 @EV::Loop::Default::ISA = "EV::Loop";
@@ -535,7 +536,7 @@ will not adjust when a time jump occurs, that is, if it is to be run
 at January 1st 2011 then it will run when the system time reaches or
 surpasses this time.
 
-=item * non-repeating interval timer ($interval > 0, $reschedule_cb = 0)
+=item * repeating interval timer ($interval > 0, $reschedule_cb = 0)
 
 In this mode the watcher will always be scheduled to time out at the
 next C<$at + N * $interval> time (for some integer N) and then repeat,
@@ -969,6 +970,16 @@ automatically.
 The C<embed_ns> variant doesn't start (activate) the newly created watcher.
 
 =back
+
+=head3 ASYNC WATCHERS - how to wake up another event loop
+
+Async watchers are provided by EV, but have little use in perl directly, as perl
+neither supports threads nor direct access to signal handlers or other
+contexts where they could be of value.
+
+It is, however, possible to use them from the XS level.
+
+Please see the libev documentation for further details.
 
 
 =head1 PERL SIGNALS

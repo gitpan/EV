@@ -79,7 +79,8 @@ static HV
   *stash_prepare,
   *stash_check,
   *stash_embed,
-  *stash_fork;
+  *stash_fork,
+  *stash_async;
 
 #ifndef SIG_SIZE
 /* kudos to Slaven Rezic for the idea */
@@ -377,6 +378,7 @@ BOOT:
   stash_embed    = gv_stashpv ("EV::Embed"   , 1);
   stash_stat     = gv_stashpv ("EV::Stat"    , 1);
   stash_fork     = gv_stashpv ("EV::Fork"    , 1);
+  stash_async    = gv_stashpv ("EV::Async"   , 1);
 
   {
     SV *sv = perl_get_sv ("EV::API", TRUE);
@@ -428,6 +430,9 @@ BOOT:
     evapi.embed_sweep          = ev_embed_sweep;
     evapi.fork_start           = ev_fork_start;
     evapi.fork_stop            = ev_fork_stop;
+    evapi.async_start          = ev_async_start;
+    evapi.async_stop           = ev_async_stop;
+    evapi.async_send           = ev_async_send;
     evapi.clear_pending        = ev_clear_pending;
     evapi.invoke               = ev_invoke;
 
@@ -641,6 +646,16 @@ ev_embed *embed (struct ev_loop *loop, SV *cb = &PL_sv_undef)
 
         if (!ix) START (embed, RETVAL);
 }
+	OUTPUT:
+        RETVAL
+
+ev_async *async (SV *cb)
+	ALIAS:
+        async_ns = 1
+	CODE:
+        RETVAL = e_new (sizeof (ev_async), cb, default_loop_sv);
+        ev_async_set (RETVAL);
+        if (!ix) START (async, RETVAL);
 	OUTPUT:
         RETVAL
 
@@ -1134,6 +1149,27 @@ SV *other (ev_embed *w)
 	OUTPUT:
         RETVAL
 
+void ev_embed_sweep (ev_embed *w)
+	C_ARGS: e_loop (w), w
+
+MODULE = EV		PACKAGE = EV::Async	PREFIX = ev_async_
+
+void ev_async_start (ev_async *w)
+	CODE:
+        START (async, w);
+
+void ev_async_stop (ev_async *w)
+	CODE:
+        STOP (async, w);
+
+void DESTROY (ev_async *w)
+	CODE:
+        STOP (async, w);
+        e_destroy (w);
+
+void ev_async_send (ev_async *w)
+	C_ARGS: e_loop (w), w
+
 MODULE = EV		PACKAGE = EV::Loop	PREFIX = ev_
 
 SV *new (SV *klass, unsigned int flags = 0)
@@ -1326,6 +1362,16 @@ ev_embed *embed (struct ev_loop *loop, struct ev_loop *other, SV *cb = &PL_sv_un
 
         if (!ix) START (embed, RETVAL);
 }
+	OUTPUT:
+        RETVAL
+
+ev_async *async (struct ev_loop *loop, SV *cb)
+	ALIAS:
+        async_ns = 1
+	CODE:
+        RETVAL = e_new (sizeof (ev_async), cb, ST (0));
+        ev_async_set (RETVAL);
+        if (!ix) START (async, RETVAL);
 	OUTPUT:
         RETVAL
 

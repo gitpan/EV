@@ -1,5 +1,10 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.1  Sat Mar  8 11:41:14 CET 2008
+	- add ev_sync_* and ev_fork_* to EVAPI.h.
+	- provide EV::Embed->sweep method.
+	- new watcher type: async (not very useful in perl).
+
 3.0  Mon Jan 28 13:23:11 CET 2008
 	- upgrade to libev-3.0.
         - change child handler to incorporate tracing flag.

@@ -423,7 +423,7 @@ WATCHER TYPES
             it is to be run at January 1st 2011 then it will run when the
             system time reaches or surpasses this time.
 
-        *   non-repeating interval timer ($interval > 0, $reschedule_cb = 0)
+        *   repeating interval timer ($interval > 0, $reschedule_cb = 0)
 
             In this mode the watcher will always be scheduled to time out at
             the next "$at + N * $interval" time (for some integer N) and
@@ -777,6 +777,15 @@ WATCHER TYPES
 
         The "embed_ns" variant doesn't start (activate) the newly created
         watcher.
+
+   ASYNC WATCHERS - how to wake up another event loop
+    Async watchers are provided by EV, but have little use in perl directly,
+    as perl neither supports threads nor direct access to signal handlers or
+    other contexts where they could be of value.
+
+    It is, however, possible to use them from the XS level.
+
+    Please see the libev documentation for further details.
 
 PERL SIGNALS
     While Perl signal handling (%SIG) is not affected by EV, the behaviour

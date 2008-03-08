@@ -35,7 +35,7 @@ struct EVAPI {
   I32 ver;
   I32 rev;
 #define EV_API_VERSION 4
-#define EV_API_REVISION 0
+#define EV_API_REVISION 1
 
   struct ev_loop *default_loop;
   unsigned int supported_backends;
@@ -88,6 +88,9 @@ struct EVAPI {
   void (*embed_sweep)(EV_P_ ev_embed *);
   void (*fork_start) (EV_P_ ev_fork *);
   void (*fork_stop)  (EV_P_ ev_fork *);
+  void (*async_start) (EV_P_ ev_async *);
+  void (*async_stop)  (EV_P_ ev_async *);
+  void (*async_send)  (EV_P_ ev_async *);
 };
 
 #if !EV_PROTOTYPES
@@ -135,6 +138,11 @@ struct EVAPI {
 # define ev_embed_start(l,w)       GEVAPI->embed_start ((l), (w))
 # define ev_embed_stop(l,w)        GEVAPI->embed_stop  ((l), (w))
 # define ev_embed_sweep(l,w)       GEVAPI->embed_sweep ((l), (w))
+# define ev_fork_start(l,w)        GEVAPI->fork_start ((l), (w))
+# define ev_fork_stop(l,w)         GEVAPI->fork_stop  ((l), (w))
+# define ev_async_start(l,w)       GEVAPI->async_start ((l), (w))
+# define ev_async_stop(l,w)        GEVAPI->async_stop  ((l), (w))
+# define ev_async_send(l,w)        GEVAPI->async_send  ((l), (w))
 # define ev_ref(loop)              GEVAPI->ref   (loop)
 # define ev_unref(loop)            GEVAPI->unref (loop)
 # define ev_clear_pending(l,w)     GEVAPI->clear_pending ((l), (w))
