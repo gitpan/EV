@@ -1,5 +1,12 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.2  Wed Apr  2 17:08:16 CEST 2008
+	- "ported" again to the Microsoft "C" language.
+        - relax testsuite timing fior the benefit of freebsd users once more.
+        - fix EVAPI's ev_time and ev_sleep macros.
+        - (libev) fix select backend on 64 bit architetcures.
+        - (libev) ev_loop flags are now local to each invocation.
+
 3.1  Sat Mar  8 11:41:14 CET 2008
 	- add ev_sync_* and ev_fork_* to EVAPI.h.
 	- provide EV::Embed->sweep method.

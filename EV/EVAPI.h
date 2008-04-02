@@ -48,8 +48,8 @@ struct EVAPI {
   int (*sv_signum) (SV *fh);
 
   /* same as libev functions */
-  ev_tstamp (*time)(void);
-  void (*sleep)(ev_tstamp);
+  ev_tstamp (*time_)(void);
+  void (*sleep_)(ev_tstamp);
   ev_tstamp (*now)(EV_P);
   struct ev_loop *(*loop_new)(unsigned int);
   void (*loop_destroy)(EV_P);
@@ -104,8 +104,8 @@ struct EVAPI {
 
 # define sv_fileno(sv)             GEVAPI->sv_fileno (sv)
 # define sv_signum(sv)             GEVAPI->sv_signum (sv)
-# define ev_time()                 GEVAPI->(time) ()
-# define ev_sleep()                GEVAPI->(sleep) ()
+# define ev_time()                 GEVAPI->time_ ()
+# define ev_sleep(time)            GEVAPI->sleep_ ((time))
 # define ev_loop_new(flags)        GEVAPI->loop_new ((flags))
 # define ev_loop_destroy(loop)     GEVAPI->loop_destroy ((loop))
 # define ev_loop_fork(loop)        GEVAPI->loop_fork ((loop))

@@ -4,14 +4,14 @@
 
 /*#include <netinet/in.h>*/
 
+/* fix perl api breakage */
+#undef signal
+#undef sigaction
+
 #define EV_PROTOTYPES 1
 #define EV_USE_NANOSLEEP EV_USE_MONOTONIC
 #define EV_H <ev.h>
 #include "EV/EVAPI.h"
-
-/* fix perl api breakage */
-#undef signal
-#undef sigaction
 
 #define EV_SELECT_IS_WINSOCKET 0
 #ifdef _WIN32
@@ -392,8 +392,8 @@ BOOT:
     evapi.supported_backends   = ev_supported_backends ();
     evapi.recommended_backends = ev_recommended_backends ();
     evapi.embeddable_backends  = ev_embeddable_backends ();
-    evapi.time                 = ev_time;
-    evapi.sleep                = ev_sleep;
+    evapi.time_                = ev_time;
+    evapi.sleep_               = ev_sleep;
     evapi.loop_new             = ev_loop_new;
     evapi.loop_destroy         = ev_loop_destroy;
     evapi.loop_fork            = ev_loop_fork;
