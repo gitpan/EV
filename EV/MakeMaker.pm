@@ -67,8 +67,48 @@ C<c> file(s).
   BOOT:
     I_EV_API ("YourModule");
 
-=head2 API
+=head1 API
 
-See the EVAPI.h header.
+See the L<EVAPI.h|http://cvs.schmorp.de/EV/EV/EVAPI.h> header, which you should include instead
+of F<ev.h>.
+
+In short, all the functions and macros from F<ev.h> should work, except
+that the trailing underscore macros (C<EV_A_>, C<EV_DEFAULT_>) are not
+available (except C<EV_P_> :).
+
+Multiplicity is enabled.
+
+The C<data> member in each watcher is of type C<SV *> and not C<void *>
+(this might change at some point).
+
+=head1 EXAMPLE
+
+The L<EV::Glib>, L<EV::ADNS> and L<Glib::EV> modules all give nice
+examples on how to use this module.
+
+Here are some F<.xs> fragments taken from EV::ADNS that should get you
+going:
+
+  #include "EVAPI.h"
+
+  static ev_prepare pw;
+  static ev_idle iw;
+
+  static void
+  idle_cb (EV_P_ ev_idle *w, int revents)
+  {
+    ev_idle_stop (EV_A, w);
+  }
+
+  MODULE = ...
+
+  BOOT:
+  {
+    I_EV_API ("EV::ADNS");
+    ev_prepare_init (&pw, prepare_cb);
+    ev_init (&iw, idle_cb); ev_set_priority (&iw, EV_MINPRI);
+    ev_idle_start (EV_DEFAULT, &iw);
+  }
 
 =cut
+

@@ -70,7 +70,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.2';
+   our $VERSION = '3.3';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -980,6 +980,18 @@ contexts where they could be of value.
 It is, however, possible to use them from the XS level.
 
 Please see the libev documentation for further details.
+
+=over 4
+
+=item $w = EV::async $callback
+
+=item $w = EV::async_ns $callback
+
+=item $w->send
+
+=item $bool = $w->async_pending
+
+=back
 
 
 =head1 PERL SIGNALS

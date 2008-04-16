@@ -1,4 +1,4 @@
-BEGIN { $| = 1; print "1..12\n"; }
+BEGIN { $| = 1; print "1..13\n"; }
 
 no warnings;
 use strict;
@@ -12,25 +12,26 @@ use EV;
       print "not ok 1\n";
    };
    $a2 = EV::async sub {
-      print "ok 4\n";
+      print "ok 5\n";
       $a1->cb (sub {
-         print "ok 5\n";
+         print "ok 6\n";
          EV::unloop;
       });
       $a1->send;
    };
    $a1 = EV::async sub {
-      print "ok 3\n";
+      print $a1->async_pending ? "not " : "", "ok 4\n";
       $a2->send;
    };
 
-   print "ok 1\n";
+   print $a1->async_pending ? "not " : "", "ok 1\n";
+   $a1->send;
+   print $a1->async_pending ? "" : "not ", "ok 2\n";
    $a1->send;
    $a1->send;
-   $a1->send;
-   print "ok 2\n";
+   print "ok 3\n";
    EV::loop;
-   print "ok 6\n";
+   print "ok 7\n";
 }
 
 {
@@ -38,26 +39,27 @@ use EV;
    my ($a1, $a2, $a3);
 
    $a3 = $l->async (sub {
-      print "not ok 7\n";
+      print "not ok 8\n";
    });
    $a2 = $l->async (sub {
-      print "ok 10\n";
+      print "ok 11\n";
       $a1->cb (sub {
-         print "ok 11\n";
+         print "ok 12\n";
          $l->unloop;
       });
       $a1->send;
    });
    $a1 = $l->async (sub {
-      print "ok 9\n";
+      print "ok 10\n";
       $a2->send;
    });
 
-   print "ok 7\n";
-   $a1->send;
-   $a1->send;
-   $a1->send;
    print "ok 8\n";
+   $a1->send;
+   $a1->send;
+   $a1->send;
+   print "ok 9\n";
    $l->loop;
-   print "ok 12\n";
+   print "ok 13\n";
 }
+

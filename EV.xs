@@ -1170,6 +1170,12 @@ void DESTROY (ev_async *w)
 void ev_async_send (ev_async *w)
 	C_ARGS: e_loop (w), w
 
+SV *ev_async_async_pending (ev_async *w)
+        CODE:
+        RETVAL = boolSV (ev_async_pending (w));
+	OUTPUT:
+        RETVAL
+
 MODULE = EV		PACKAGE = EV::Loop	PREFIX = ev_
 
 SV *new (SV *klass, unsigned int flags = 0)

@@ -68,6 +68,21 @@ print <<EOF;
 *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 
 
+Another useful bit of functionality is the Linux eventfd, which is useful
+for faster signal handling (don't care) and intra-thread communications
+(mostly useful for embedding). Kernel support for this will be probed at
+runtime, but your libc must contain the necessary wrapper. Glibc 2.7 and
+later should have this wrapper.
+
+EOF
+
+$DEFINE .= " -DEV_USE_EVENTFD=" . (0 + (prompt ("Enable linux eventfd support (y/n)?", (-e "/usr/include/sys/eventfd.h") || $ENV{EV_EVENTFD} ? "y" : "n") =~ /[yY]/));
+
+print <<EOF;
+
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
+
 EV can use various backends with various portability issue. The select
 backend is the most portable and makes for a good fallback, but it can be
 limited to a low number of file descriptors and/or might not compile. If

@@ -787,6 +787,11 @@ WATCHER TYPES
 
     Please see the libev documentation for further details.
 
+    $w = EV::async $callback
+    $w = EV::async_ns $callback
+    $w->send
+    $bool = $w->async_pending
+
 PERL SIGNALS
     While Perl signal handling (%SIG) is not affected by EV, the behaviour
     with EV is as the same as any other C library: Perl-signals will only be

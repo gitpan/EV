@@ -96,8 +96,11 @@ struct EVAPI {
 #if !EV_PROTOTYPES
 # undef EV_DEFAULT
 # undef EV_DEFAULT_
+# undef EV_DEFAULT_UC
+# undef EV_DEFAULT_UC_
 # undef EV_A_
 # define EV_DEFAULT                GEVAPI->default_loop
+# define EV_DEFAULT_UC             GEVAPI->default_loop
 # define ev_supported_backends()   GEVAPI->supported_backends
 # define ev_recommended_backends() GEVAPI->recommended_backends
 # define ev_embeddable_backends()  GEVAPI->embeddable_backends
