@@ -1,5 +1,8 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.31 Wed Apr 16 20:48:59 CEST 2008
+	- (libev) post-last-minute fix for ev_poll.c problem.
+
 3.3  Wed Apr 16 19:04:47 CEST 2008
 	- (libev) linux eventfd support.
         - (libev) inline more with C99 compilers.
