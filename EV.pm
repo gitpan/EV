@@ -58,10 +58,16 @@ EV - perl interface to libev, a high performance full-featured event loop
 This module provides an interface to libev
 (L<http://software.schmorp.de/pkg/libev.html>). While the documentation
 below is comprehensive, one might also consult the documentation of libev
-itself (L<http://cvs.schmorp.de/libev/ev.html>) for more subtle details on
-watcher semantics or some discussion on the available backends, or how to
-force a specific backend with C<LIBEV_FLAGS>, or just about in any case
-because it has much more detailed information.
+itself (L<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod>) for more
+subtle details on watcher semantics or some discussion on the available
+backends, or how to force a specific backend with C<LIBEV_FLAGS>, or just
+about in any case because it has much more detailed information.
+
+This module is very fast and scalable. It is actually so fast that you
+can use it through the L<AnyEvent> module, stay portable to other event
+loops (if you don't rely on any watcher types not available through it)
+and still be faster than with any other event loop currently supported in
+Perl.
 
 =cut
 
@@ -70,7 +76,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.31';
+   our $VERSION = '3.33';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -1051,7 +1057,8 @@ default_loop
 
 L<EV::ADNS> (asynchronous DNS), L<Glib::EV> (makes Glib/Gtk2 use EV as
 event loop), L<EV::Glib> (embed Glib into EV), L<Coro::EV> (efficient
-coroutines with EV), L<Net::SNMP::EV> (asynchronous SNMP).
+coroutines with EV), L<Net::SNMP::EV> (asynchronous SNMP), L<AnyEvent> for
+event-loop agnostic and portable event driven programming.
 
 =head1 AUTHOR
 

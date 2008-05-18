@@ -891,12 +891,6 @@ void set (ev_timer *w, NV after, NV repeat = 0.)
 	CODE:
         RESET (timer, w, (w, after, repeat));
 
-NV at (ev_timer *w)
-	CODE:
-        RETVAL = w->at;
-	OUTPUT:
-        RETVAL
-
 MODULE = EV		PACKAGE = EV::Periodic	PREFIX = ev_periodic_
 
 void ev_periodic_start (ev_periodic *w)
@@ -933,7 +927,7 @@ void set (ev_periodic *w, NV at, NV interval = 0., SV *reschedule_cb = &PL_sv_un
 
 NV at (ev_periodic *w)
 	CODE:
-        RETVAL = w->at;
+        RETVAL = ev_periodic_at (w);
 	OUTPUT:
         RETVAL
 

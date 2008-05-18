@@ -1,5 +1,10 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.33 Sun May 18 12:43:04 CEST 2008
+	- (libev) use numerous enhancements such as a more
+          cache-friendly 4-heap and heap index caching for timers.
+        - remove undocumented ev_timer->at accessor.
+
 3.31 Wed Apr 16 20:48:59 CEST 2008
 	- (libev) post-last-minute fix for ev_poll.c problem.
 
