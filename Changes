@@ -1,5 +1,11 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.4  Tue May 20 21:51:55 CEST 2008
+        - (libev) work around both a windows bug and a bug in perl's
+          select on windows when not waiting for any file descriptors.
+	- bundle ev.pod into the tarball, just to increase its size
+          (and for the poor internetless person).
+          
 3.33 Sun May 18 12:43:04 CEST 2008
 	- (libev) use numerous enhancements such as a more
           cache-friendly 4-heap and heap index caching for timers.

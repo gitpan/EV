@@ -34,5 +34,6 @@ libev/ev_epoll.c
 libev/ev_poll.c
 libev/ev_kqueue.c
 libev/ev_port.c
+libev/ev.pod
 
 META.yml                                 Module meta-data (added by MakeMaker)
