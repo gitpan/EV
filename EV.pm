@@ -76,7 +76,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.4';
+   our $VERSION = '3.41';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -570,13 +570,14 @@ time the periodic watcher gets scheduled, the reschedule callback
 time as second argument.
 
 I<This callback MUST NOT stop or destroy this or any other periodic
-watcher, ever>. If you need to stop it, return 1e30 and stop it
-afterwards.
+watcher, ever, and MUST NOT call any event loop functions or methods>. If
+you need to stop it, return 1e30 and stop it afterwards. You may create
+and start a C<EV::prepare> watcher for this task.
 
 It must return the next time to trigger, based on the passed time value
-(that is, the lowest time value larger than to the second argument). It
-will usually be called just before the callback will be triggered, but
-might be called at other times, too.
+(that is, the lowest time value larger than or equal to to the second
+argument). It will usually be called just before the callback will be
+triggered, but might be called at other times, too.
 
 This can be used to create very complex timers, such as a timer that
 triggers on each midnight, local time (actually 24 hours after the last

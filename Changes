@@ -1,5 +1,13 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.41 Thu May 22 01:39:40 CEST 2008
+	- (libev) fix many heap-related bugs (timers, periodics).
+        - (libev) improve timing stability of timers and periodics.
+        - clarify documentation for periodic reschedule callbacks.
+        - verify that the passed callback argument is indeed a code
+          reference, for earlier error reporting and a nice calling
+          speed increase (as well as saving memory).
+
 3.4  Tue May 20 21:51:55 CEST 2008
         - (libev) work around both a windows bug and a bug in perl's
           select on windows when not waiting for any file descriptors.

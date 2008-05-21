@@ -458,14 +458,16 @@ WATCHER TYPES
             first, and the current time as second argument.
 
             *This callback MUST NOT stop or destroy this or any other
-            periodic watcher, ever*. If you need to stop it, return 1e30 and
-            stop it afterwards.
+            periodic watcher, ever, and MUST NOT call any event loop
+            functions or methods*. If you need to stop it, return 1e30 and
+            stop it afterwards. You may create and start a "EV::prepare"
+            watcher for this task.
 
             It must return the next time to trigger, based on the passed
-            time value (that is, the lowest time value larger than to the
-            second argument). It will usually be called just before the
-            callback will be triggered, but might be called at other times,
-            too.
+            time value (that is, the lowest time value larger than or equal
+            to to the second argument). It will usually be called just
+            before the callback will be triggered, but might be called at
+            other times, too.
 
             This can be used to create very complex timers, such as a timer
             that triggers on each midnight, local time (actually 24 hours

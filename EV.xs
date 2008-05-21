@@ -129,9 +129,23 @@ sv_fileno (SV *fh)
   return -1;
 }
 
+static SV *
+e_get_cv (SV *cb_sv)
+{
+  HV *st;
+  GV *gvp;
+  CV *cv = sv_2cv (cb_sv, &st, &gvp, 0);
+
+  if (!cv)
+    croak ("EV watcher callback must be a CODE reference");
+
+  return (SV *)cv;
+}
+
 static void *
 e_new (int size, SV *cb_sv, SV *loop)
 {
+  SV *cv = e_get_cv (cb_sv);
   ev_watcher *w;
   SV *self = NEWSV (0, size);
   SvPOK_only (self);
@@ -145,7 +159,7 @@ e_new (int size, SV *cb_sv, SV *loop)
   w->e_flags = WFLAG_KEEPALIVE;
   w->data    = 0;
   w->fh      = 0;
-  w->cb_sv   = SvTEMP (cb_sv) && SvREFCNT (cb_sv) == 1 ? SvREFCNT_inc (cb_sv) : newSVsv (cb_sv);
+  w->cb_sv   = SvREFCNT_inc (cv);
   w->self    = self;
 
   return (void *)w;
@@ -705,10 +719,14 @@ int keepalive (ev_watcher *w, int new_value = 0)
 SV *cb (ev_watcher *w, SV *new_cb = 0)
 	CODE:
 {
-        RETVAL = newSVsv (w->cb_sv);
-
         if (items > 1)
-          sv_setsv (w->cb_sv, new_cb);
+          {
+            new_cb = e_get_cv (new_cb);
+            RETVAL = newRV_noinc (w->cb_sv);
+            w->cb_sv = SvREFCNT_inc (new_cb);
+          }
+        else
+          RETVAL = newRV_inc (w->cb_sv);
 }
 	OUTPUT:
         RETVAL
