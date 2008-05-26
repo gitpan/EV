@@ -1210,6 +1210,8 @@ void DESTROY (struct ev_loop *loop)
 
 void ev_loop_fork (struct ev_loop *loop)
 
+void ev_loop_verify (struct ev_loop *loop)
+
 NV ev_now (struct ev_loop *loop)
 
 void ev_set_io_collect_interval (struct ev_loop *loop, NV interval)

@@ -76,7 +76,7 @@ package EV;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.41';
+   our $VERSION = '3.42';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -132,12 +132,20 @@ is protected by this module.
 
 Must be called after a fork in the child, before entering or continuing
 the event loop. An alternative is to use C<EV::FLAG_FORKCHECK> which calls
-this fucntion automatically, at some performance loss (refer to the libev
+this function automatically, at some performance loss (refer to the libev
 documentation).
+
+=item $loop->loop_verify
+
+Calls C<ev_verify> to make internal consistency checks (for debugging
+libev) and abort the program if any data structures wree found to be
+corrupted.
 
 =item $loop = EV::default_loop [$flags]
 
-Return the default loop (which is a singleton object).
+Return the default loop (which is a singleton object). Since this module
+already creates the default loop with default flags, specifying flags here
+will not have any effect unless you destroy the default loop.
 
 =back
 

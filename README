@@ -98,11 +98,19 @@ EVENT LOOPS
     $loop->loop_fork
         Must be called after a fork in the child, before entering or
         continuing the event loop. An alternative is to use
-        "EV::FLAG_FORKCHECK" which calls this fucntion automatically, at
+        "EV::FLAG_FORKCHECK" which calls this function automatically, at
         some performance loss (refer to the libev documentation).
 
+    $loop->loop_verify
+        Calls "ev_verify" to make internal consistency checks (for debugging
+        libev) and abort the program if any data structures wree found to be
+        corrupted.
+
     $loop = EV::default_loop [$flags]
-        Return the default loop (which is a singleton object).
+        Return the default loop (which is a singleton object). Since this
+        module already creates the default loop with default flags,
+        specifying flags here will not have any effect unless you destroy
+        the default loop.
 
 BASIC INTERFACE
     $EV::DIED

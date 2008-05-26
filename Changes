@@ -1,8 +1,14 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.42 Mon May 26 07:36:46 CEST 2008
+	- (libev) work around another bug in windows perls and
+           windows itself: failed connects do NOT set read or write
+           flags in select, but this version of libev will.
+
 3.41 Thu May 22 01:39:40 CEST 2008
 	- (libev) fix many heap-related bugs (timers, periodics).
         - (libev) improve timing stability of timers and periodics.
+        - expose ev_loop_verify to perl code.
         - clarify documentation for periodic reschedule callbacks.
         - verify that the passed callback argument is indeed a code
           reference, for earlier error reporting and a nice calling

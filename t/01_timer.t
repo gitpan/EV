@@ -19,6 +19,8 @@ for my $i (1..1000) {
    push @timer, EV::timer $t, 0, sub {
       my $now = EV::now;
 
+      EV::default_loop->loop_verify;
+
       print $now + $fudge >= $prev      ? "" : "not ", "ok ", ++$id, " # t0 $i $now + $fudge >= $prev\n";
       print $now + $fudge >= $base + $t ? "" : "not ", "ok ", ++$id, " # t1 $i $now + $fudge >= $base + $t\n";
 
@@ -35,6 +37,8 @@ for my $i (1..1000) {
    my $t = $i * $i * 1.375475771; $t -= int $t;
    push @periodic, EV::periodic $base + $t, 0, 0, sub {
       my $now = EV::now;
+
+      EV::default_loop->loop_verify;
 
       print $now >= $prev      ? "" : "not ", "ok ", ++$id, " # p0 $i $now >= $prev\n";
       print $now >= $base + $t ? "" : "not ", "ok ", ++$id, " # p1 $i $now >= $base + $t\n";
