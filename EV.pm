@@ -4,54 +4,54 @@ EV - perl interface to libev, a high performance full-featured event loop
 
 =head1 SYNOPSIS
 
-  use EV;
+   use EV;
+   
+   # TIMERS
+   
+   my $w = EV::timer 2, 0, sub {
+      warn "is called after 2s";
+   };
+   
+   my $w = EV::timer 2, 2, sub {
+      warn "is called roughly every 2s (repeat = 2)";
+   };
+   
+   undef $w; # destroy event watcher again
+   
+   my $w = EV::periodic 0, 60, 0, sub {
+      warn "is called every minute, on the minute, exactly";
+   };
+   
+   # IO
+   
+   my $w = EV::io *STDIN, EV::READ, sub {
+      my ($w, $revents) = @_; # all callbacks receive the watcher and event mask
+      warn "stdin is readable, you entered: ", <STDIN>;
+   };
+   
+   # SIGNALS
+   
+   my $w = EV::signal 'QUIT', sub {
+      warn "sigquit received\n";
+   };
+   
+   # CHILD/PID STATUS CHANGES
   
-  # TIMERS
+   my $w = EV::child 666, 0, sub {
+      my ($w, $revents) = @_;
+      my $status = $w->rstatus;
+   };
   
-  my $w = EV::timer 2, 0, sub {
-     warn "is called after 2s";
-  };
-  
-  my $w = EV::timer 2, 2, sub {
-     warn "is called roughly every 2s (repeat = 2)";
-  };
-  
-  undef $w; # destroy event watcher again
-  
-  my $w = EV::periodic 0, 60, 0, sub {
-     warn "is called every minute, on the minute, exactly";
-  };
-  
-  # IO
-  
-  my $w = EV::io *STDIN, EV::READ, sub {
-     my ($w, $revents) = @_; # all callbacks receive the watcher and event mask
-     warn "stdin is readable, you entered: ", <STDIN>;
-  };
-  
-  # SIGNALS
-  
-  my $w = EV::signal 'QUIT', sub {
-     warn "sigquit received\n";
-  };
-  
-  # CHILD/PID STATUS CHANGES
-
-  my $w = EV::child 666, 0, sub {
-     my ($w, $revents) = @_;
-     my $status = $w->rstatus;
-  };
-
-  # STAT CHANGES
-  my $w = EV::stat "/etc/passwd", 10, sub {
-     my ($w, $revents) = @_;
-     warn $w->path, " has changed somehow.\n";
-  };
-  
-  # MAINLOOP
-  EV::loop;           # loop until EV::unloop is called or all watchers stop
-  EV::loop EV::LOOP_ONESHOT;  # block until at least one event could be handled
-  EV::loop EV::LOOP_NONBLOCK; # try to handle same events, but do not block
+   # STAT CHANGES
+   my $w = EV::stat "/etc/passwd", 10, sub {
+      my ($w, $revents) = @_;
+      warn $w->path, " has changed somehow.\n";
+   };
+   
+   # MAINLOOP
+   EV::loop;           # loop until EV::unloop is called or all watchers stop
+   EV::loop EV::LOOP_ONESHOT;  # block until at least one event could be handled
+   EV::loop EV::LOOP_NONBLOCK; # try to handle same events, but do not block
 
 =head1 DESCRIPTION
 
@@ -73,10 +73,11 @@ Perl.
 
 package EV;
 
+no warnings;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.42';
+   our $VERSION = '3.43';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -113,6 +114,12 @@ modules (e.g. AnyEvent or Coro) and most portable event loop.
 
 For specific programs you can create additional event loops dynamically.
 
+If you want to take avdantage of kqueue (which often works properly for
+sockets only) even though the default loop doesn't enable it, you can
+I<embed> a kqueue loop into the default loop: running the default loop
+will then also service the kqueue loop to some extent. See the example in
+the section about embed watchers for an example on how to achieve that.
+
 =over 4
 
 =item $loop = new EV::loop [$flags]
@@ -138,14 +145,16 @@ documentation).
 =item $loop->loop_verify
 
 Calls C<ev_verify> to make internal consistency checks (for debugging
-libev) and abort the program if any data structures wree found to be
+libev) and abort the program if any data structures were found to be
 corrupted.
 
 =item $loop = EV::default_loop [$flags]
 
 Return the default loop (which is a singleton object). Since this module
 already creates the default loop with default flags, specifying flags here
-will not have any effect unless you destroy the default loop.
+will not have any effect unless you destroy the default loop first, which
+isn't supported. So in short: don't do it, and if you break it, you get to
+keep the pieces.
 
 =back
 
@@ -285,10 +294,10 @@ A watcher is an object that gets created to record your interest in some
 event. For instance, if you want to wait for STDIN to become readable, you
 would create an EV::io watcher for that:
 
-  my $watcher = EV::io *STDIN, EV::READ, sub {
-     my ($watcher, $revents) = @_;
-     warn "yeah, STDIN should now be readable without blocking!\n"
-  };
+   my $watcher = EV::io *STDIN, EV::READ, sub {
+      my ($watcher, $revents) = @_;
+      warn "yeah, STDIN should now be readable without blocking!\n"
+   };
 
 All watchers can be active (waiting for events) or inactive (paused). Only
 active watchers will have their callbacks invoked. All callbacks will be
@@ -411,7 +420,7 @@ event loop from running just because of that watcher.
 
    my $udp_socket = ...
    my $udp_watcher = EV::io $udp_socket, EV::READ, sub { ... };
-   $1000udp_watcher->keepalive (0);
+   $udp_watcher->keepalive (0);
 
 =item $loop = $w->loop
 
@@ -953,19 +962,19 @@ for more details.
 In short, this watcher is most useful on BSD systems without working
 kqueue to still be able to handle a large number of sockets:
 
-  my $socket_loop;
-
-  # check wether we use SELECT or POLL _and_ KQUEUE is supported
-  if (
-    (EV::backend & (EV::BACKEND_POLL | EV::BACKEND_SELECT))
-    && (EV::supported_backends & EV::embeddable_backends & EV::BACKEND_KQUEUE)
-  ) {
-    # use kqueue for sockets
-    $socket_loop = new EV::Loop EV::BACKEND_KQUEUE | EV::FLAG_NOENV;
-  }
-
-  # use the default loop otherwise
-  $socket_loop ||= EV::default_loop;
+   my $socket_loop;
+  
+   # check wether we use SELECT or POLL _and_ KQUEUE is supported
+   if (
+     (EV::backend & (EV::BACKEND_POLL | EV::BACKEND_SELECT))
+     && (EV::supported_backends & EV::embeddable_backends & EV::BACKEND_KQUEUE)
+   ) {
+     # use kqueue for sockets
+     $socket_loop = new EV::Loop EV::BACKEND_KQUEUE | EV::FLAG_NOENV;
+   }
+  
+   # use the default loop otherwise
+   $socket_loop ||= EV::default_loop;
 
 =over 4
 
@@ -1071,8 +1080,8 @@ event-loop agnostic and portable event driven programming.
 
 =head1 AUTHOR
 
- Marc Lehmann <schmorp@schmorp.de>
- http://home.schmorp.de/
+   Marc Lehmann <schmorp@schmorp.de>
+   http://home.schmorp.de/
 
 =cut
 

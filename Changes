@@ -1,5 +1,9 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.43 Tue Jul  8 20:56:31 CEST 2008
+	- disabled warnings in EV.pm, the CHECK issue is now understood
+          and harmless.
+
 3.42 Mon May 26 07:36:46 CEST 2008
 	- (libev) work around another bug in windows perls and
            windows itself: failed connects do NOT set read or write
