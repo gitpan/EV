@@ -791,14 +791,14 @@ WATCHER TYPES
    # use the default loop otherwise
        $socket_loop ||= EV::default_loop;
 
-    $w = EV::embed $otherloop, $callback
-    $w = EV::embed_ns $otherloop, $callback
-    $w = $loop->embed ($otherloop, $callback)
-    $w = $loop->embed_ns ($otherloop, $callback)
+    $w = EV::embed $otherloop[, $callback]
+    $w = EV::embed_ns $otherloop[, $callback]
+    $w = $loop->embed ($otherloop[, $callback])
+    $w = $loop->embed_ns ($otherloop[, $callback])
         Call the callback when the embedded event loop ($otherloop) has any
-        I/O activity. The $callback should alwas be specified as "undef" in
-        this version of EV, which means the embedded event loop will be
-        managed automatically.
+        I/O activity. The $callback is optional: if it is missing, then the
+        embedded event loop will be managed automatically (which is
+        recommended), otherwise you have to invoke "sweep" yourself.
 
         The "embed_ns" variant doesn't start (activate) the newly created
         watcher.

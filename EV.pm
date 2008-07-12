@@ -77,7 +77,7 @@ no warnings;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.43';
+   our $VERSION = '3.431';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -978,18 +978,18 @@ kqueue to still be able to handle a large number of sockets:
 
 =over 4
 
-=item $w = EV::embed $otherloop, $callback
+=item $w = EV::embed $otherloop[, $callback]
 
-=item $w = EV::embed_ns $otherloop, $callback
+=item $w = EV::embed_ns $otherloop[, $callback]
 
-=item $w = $loop->embed ($otherloop, $callback)
+=item $w = $loop->embed ($otherloop[, $callback])
 
-=item $w = $loop->embed_ns ($otherloop, $callback)
+=item $w = $loop->embed_ns ($otherloop[, $callback])
 
 Call the callback when the embedded event loop (C<$otherloop>) has any
-I/O activity. The C<$callback> should alwas be specified as C<undef> in
-this version of EV, which means the embedded event loop will be managed
-automatically.
+I/O activity. The C<$callback> is optional: if it is missing, then the
+embedded event loop will be managed automatically (which is recommended),
+otherwise you have to invoke C<sweep> yourself.
 
 The C<embed_ns> variant doesn't start (activate) the newly created watcher.
 

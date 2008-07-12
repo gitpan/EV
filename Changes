@@ -1,5 +1,9 @@
 Revision history for Perl extension EV and the embedded libev library
 
+3.431
+	- made the EV::embed callback optional again. reported by
+          Vladimir Timofeev.
+
 3.43 Tue Jul  8 20:56:31 CEST 2008
 	- disabled warnings in EV.pm, the CHECK issue is now understood
           and harmless.

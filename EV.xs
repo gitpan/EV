@@ -145,7 +145,7 @@ e_get_cv (SV *cb_sv)
 static void *
 e_new (int size, SV *cb_sv, SV *loop)
 {
-  SV *cv = e_get_cv (cb_sv);
+  SV *cv = cb_sv ? e_get_cv (cb_sv) : 0;
   ev_watcher *w;
   SV *self = NEWSV (0, size);
   SvPOK_only (self);
@@ -153,7 +153,7 @@ e_new (int size, SV *cb_sv, SV *loop)
 
   w = (ev_watcher *)SvPVX (self);
 
-  ev_init (w, e_cb);
+  ev_init (w, cv ? e_cb : 0);
 
   w->loop    = SvREFCNT_inc (SvRV (loop));
   w->e_flags = WFLAG_KEEPALIVE;
@@ -644,7 +644,7 @@ ev_stat *stat (SV *path, NV interval, SV *cb)
 	OUTPUT:
         RETVAL
 
-ev_embed *embed (struct ev_loop *loop, SV *cb = &PL_sv_undef)
+ev_embed *embed (struct ev_loop *loop, SV *cb = 0)
 	ALIAS:
         embed_ns = 1
 	CODE:
@@ -655,9 +655,6 @@ ev_embed *embed (struct ev_loop *loop, SV *cb = &PL_sv_undef)
         RETVAL = e_new (sizeof (ev_embed), cb, default_loop_sv);
         RETVAL->fh = newSVsv (ST (0));
         ev_embed_set (RETVAL, loop);
-
-        if (!SvOK (cb)) ev_set_cb (RETVAL, 0);
-
         if (!ix) START (embed, RETVAL);
 }
 	OUTPUT:
@@ -1366,7 +1363,7 @@ ev_stat *stat (struct ev_loop *loop, SV *path, NV interval, SV *cb)
 	OUTPUT:
         RETVAL
 
-ev_embed *embed (struct ev_loop *loop, struct ev_loop *other, SV *cb = &PL_sv_undef)
+ev_embed *embed (struct ev_loop *loop, struct ev_loop *other, SV *cb = 0)
 	ALIAS:
         embed_ns = 1
 	CODE:
@@ -1377,9 +1374,6 @@ ev_embed *embed (struct ev_loop *loop, struct ev_loop *other, SV *cb = &PL_sv_un
         RETVAL = e_new (sizeof (ev_embed), cb, ST (0));
         RETVAL->fh = newSVsv (ST (1));
         ev_embed_set (RETVAL, other);
-
-        if (!SvOK (cb)) ev_set_cb (RETVAL, 0);
-
         if (!ix) START (embed, RETVAL);
 }
 	OUTPUT:
