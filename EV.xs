@@ -413,6 +413,7 @@ BOOT:
     evapi.loop_fork            = ev_loop_fork;
     evapi.loop_count           = ev_loop_count;
     evapi.now                  = ev_now;
+    evapi.now_update           = ev_now_update;
     evapi.backend              = ev_backend;
     evapi.unloop               = ev_unloop;
     evapi.ref                  = ev_ref;
@@ -491,6 +492,9 @@ unsigned int ev_embeddable_backends ()
 NV ev_time ()
 
 NV ev_now ()
+	C_ARGS: evapi.default_loop
+
+void ev_now_update ()
 	C_ARGS: evapi.default_loop
 
 unsigned int ev_backend ()
@@ -1210,6 +1214,8 @@ void ev_loop_fork (struct ev_loop *loop)
 void ev_loop_verify (struct ev_loop *loop)
 
 NV ev_now (struct ev_loop *loop)
+
+void ev_now_update (struct ev_loop *loop)
 
 void ev_set_io_collect_interval (struct ev_loop *loop, NV interval)
 

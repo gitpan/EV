@@ -1,6 +1,9 @@
-Revision history for Perl extension EV and the embedded libev library
+Revision history for Perl extension EV
 
-3.431
+3.44 Mon Sep 29 05:16:31 CEST 2008
+	- (libev) add EV::now_update and $loop->now_update.
+
+3.431 Sun Jul 13 00:19:02 CEST 2008
 	- made the EV::embed callback optional again. reported by
           Vladimir Timofeev.
 

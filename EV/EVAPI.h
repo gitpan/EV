@@ -35,7 +35,7 @@ struct EVAPI {
   I32 ver;
   I32 rev;
 #define EV_API_VERSION 4
-#define EV_API_REVISION 1
+#define EV_API_REVISION 2
 
   struct ev_loop *default_loop;
   unsigned int supported_backends;
@@ -88,9 +88,10 @@ struct EVAPI {
   void (*embed_sweep)(EV_P_ ev_embed *);
   void (*fork_start) (EV_P_ ev_fork *);
   void (*fork_stop)  (EV_P_ ev_fork *);
-  void (*async_start) (EV_P_ ev_async *);
-  void (*async_stop)  (EV_P_ ev_async *);
-  void (*async_send)  (EV_P_ ev_async *);
+  void (*async_start)(EV_P_ ev_async *);
+  void (*async_stop) (EV_P_ ev_async *);
+  void (*async_send) (EV_P_ ev_async *);
+  void (*now_update) (EV_P); /* TODO: move up on next major API bump */
 };
 
 #if !EV_PROTOTYPES

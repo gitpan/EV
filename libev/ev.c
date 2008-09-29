@@ -1513,7 +1513,7 @@ ev_loop_fork (EV_P)
 }
 
 #if EV_VERIFY
-void noinline
+static void noinline
 verify_watcher (EV_P_ W w)
 {
   assert (("watcher has invalid priority", ABSPRI (w) >= 0 && ABSPRI (w) < NUMPRI));
@@ -1909,6 +1909,12 @@ void
 ev_unref (EV_P)
 {
   --activecnt;
+}
+
+void
+ev_now_update (EV_P)
+{
+  time_update (EV_A_ 1e100);
 }
 
 static int loop_done;
@@ -2984,7 +2990,7 @@ once_cb (EV_P_ struct ev_once *once, int revents)
   void (*cb)(int revents, void *arg) = once->cb;
   void *arg = once->arg;
 
-  ev_io_stop (EV_A_ &once->io);
+  ev_io_stop    (EV_A_ &once->io);
   ev_timer_stop (EV_A_ &once->to);
   ev_free (once);
 
