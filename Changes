@@ -1,5 +1,14 @@
 Revision history for Perl extension EV
 
+3.45 Tue Oct 21 22:20:39 CEST 2008
+	- (libev) disable inotify usage on linux <2.6.25 (kernel bug)
+	- (libev) ev_embed will now automatically follow fork.
+        - (libev) ev_once will now pass both io and timeout events to
+          the callback when both happen concurrently, instead of giving
+          one precedence.
+	- install C library documentation as EV::libev manpage (sorry, oesi).
+        - (libev) fix a minor performance bug in ev_stat handling.
+
 3.44 Mon Sep 29 05:16:31 CEST 2008
 	- (libev) add EV::now_update and $loop->now_update.
 

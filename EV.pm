@@ -57,17 +57,22 @@ EV - perl interface to libev, a high performance full-featured event loop
 
 This module provides an interface to libev
 (L<http://software.schmorp.de/pkg/libev.html>). While the documentation
-below is comprehensive, one might also consult the documentation of libev
-itself (L<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod>) for more
-subtle details on watcher semantics or some discussion on the available
-backends, or how to force a specific backend with C<LIBEV_FLAGS>, or just
-about in any case because it has much more detailed information.
+below is comprehensive, one might also consult the documentation of
+libev itself (L<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod> or
+F<perldoc EV::libev>) for more subtle details on watcher semantics or some
+discussion on the available backends, or how to force a specific backend
+with C<LIBEV_FLAGS>, or just about in any case because it has much more
+detailed information.
 
 This module is very fast and scalable. It is actually so fast that you
 can use it through the L<AnyEvent> module, stay portable to other event
 loops (if you don't rely on any watcher types not available through it)
 and still be faster than with any other event loop currently supported in
 Perl.
+
+=head2 MODULE EXPORTS
+
+This module does not export any symbols.
 
 =cut
 
@@ -77,7 +82,7 @@ no warnings;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.44';
+   our $VERSION = '3.45';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -124,16 +129,18 @@ the section about embed watchers for an example on how to achieve that.
 
 =item $loop = new EV::loop [$flags]
 
-Create a new event loop as per the specified flags. Please refer to the
-C<ev_loop_new ()> function description in the libev documentation
-(L<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#GLOBAL_FUNCTIONS>)
-for more info.
+Create a new event loop as per the specified flags. Please refer to
+the C<ev_loop_new ()> function description in the libev documentation
+(L<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#GLOBAL_FUNCTIONS>,
+or locally-installed as F<EV::libev> manpage) for more info.
 
 The loop will automatically be destroyed when it is no longer referenced
 by any watcher and the loop object goes out of scope.
 
-Using C<EV::FLAG_FORKCHECK> is recommended, as only the default event loop
-is protected by this module.
+If you are not embedding the loop, then Using C<EV::FLAG_FORKCHECK>
+is recommended, as only the default event loop is protected by this
+module. If you I<are> embedding this loop in the default loop, this is not
+necessary, as C<EV::embed> automatically does the right thing on fork.
 
 =item $loop->loop_fork
 
@@ -282,8 +289,8 @@ specified by C<$signal> had occured.
 
 These advanced functions set the minimum block interval when polling for I/O events and the minimum
 wait interval for timer events. See the libev documentation at
-L<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#FUNCTIONS_CONTROLLING_THE_EVENT_LOOP> for
-a more detailed discussion.
+L<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#FUNCTIONS_CONTROLLING_THE_EVENT_LOOP>
+(locally installed as F<EV::libev>) for a more detailed discussion.
 
 =back
 
@@ -957,7 +964,7 @@ fashion and must not be used).
 
 See the libev documentation at
 L<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#code_ev_embed_code_when_one_backend_>
-for more details.
+(locally installed as F<EV::libev>) for more details.
 
 In short, this watcher is most useful on BSD systems without working
 kqueue to still be able to handle a large number of sockets:
