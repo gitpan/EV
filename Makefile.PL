@@ -1,5 +1,6 @@
 use 5.006;
 
+use strict qw(vars subs);
 use Config;
 use ExtUtils::MakeMaker;
 
@@ -45,7 +46,7 @@ currently affects the use of nanosleep over select as well).
 
 EOF
 
-$DEFINE .= " -DEV_USE_MONOTONIC=" . (0 + (prompt ("Enable optional support for CLOCK_MONOTONIC (y/n)?", "y") =~ /[yY]/));
+my $DEFINE .= " -DEV_USE_MONOTONIC=" . (0 + (prompt ("Enable optional support for CLOCK_MONOTONIC (y/n)?", "y") =~ /[yY]/));
 
 print <<EOF;
 
@@ -62,21 +63,6 @@ type will be autodetected at compiletime.
 EOF
 
 $DEFINE .= " -DEV_USE_REALTIME=" . (0 + (prompt ("Prefer clock_gettime (CLOCK_REALTIME) over gettimeofday (y/n)?", "y") =~ /[yY]/));
-
-print <<EOF;
-
-*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
-
-
-Another useful bit of functionality is the Linux eventfd, which is useful
-for faster signal handling (don't care) and intra-thread communications
-(mostly useful for embedding). Kernel support for this will be probed at
-runtime, but your libc must contain the necessary wrapper. Glibc 2.7 and
-later should have this wrapper.
-
-EOF
-
-$DEFINE .= " -DEV_USE_EVENTFD=" . (0 + (prompt ("Enable linux eventfd support (y/n)?", (-e "/usr/include/sys/eventfd.h") || $ENV{EV_EVENTFD} ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 
@@ -144,7 +130,9 @@ the default.
 
 EOF
 
-$DEFINE .= " -DEV_USE_EPOLL=" . (0 + (prompt ("Enable epoll backend (y/n)?", (-e "/usr/include/sys/epoll.h") ? "y" : "n") =~ /[yY]/));
+my $can_epoll = -e "/usr/include/sys/epoll.h";
+$can_epoll = $ENV{EV_EPOLL} if exists $ENV{EV_EPOLL};
+$DEFINE .= " -DEV_USE_EPOLL=" . (0 + (prompt ("Enable epoll backend (y/n)?", $can_epoll ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 
@@ -157,7 +145,7 @@ safe fallback to other methods when it cannot be used.
 
 Note that kqueue is broken on most operating systems, so by default it
 won't be used on many platforms, but you can still create your own event
-loop with qkueue backend.
+loop with kqueue backend.
 
 Here is what we know:
 
@@ -171,7 +159,7 @@ OS X:    completely, utterly broken on at least < 10.5.
 EOF
 
 my $can_kqueue = -e "/usr/include/sys/event.h";
-
+$can_kqueue = $ENV{EV_KQUEUE} if exists $ENV{EV_KQUEUE};
 $DEFINE .= " -DEV_USE_KQUEUE=" . (0 + (prompt ("Enable kqueue backend (y/n)?", $can_kqueue ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
@@ -199,9 +187,8 @@ required by EV) now, or accept the default.
 
 EOF
 
-$SOLARIS_LIBS = $^O =~ /solaris/ ? " -lsocket -lnsl" : "";
-
-$LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "-lpthread -lrt$SOLARIS_LIBS";
+my $solaris_libs = $^O =~ /solaris/ ? " -lsocket -lnsl" : "";
+my $LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "-lpthread -lrt$solaris_libs";
 
 
 print <<EOF;
@@ -216,8 +203,25 @@ you have it, it is usually a good idea to enable it.
 EOF
 
 my $can_inotify = -e "/usr/include/sys/inotify.h";
-
+$can_inotify = $ENV{EV_INOTIFY} if exists $ENV{EV_INOTIFY};
 $DEFINE .= " -DEV_USE_INOTIFY=" . (0 + (prompt ("Enable inotify support (y/n)?", $can_inotify ? "y" : "n") =~ /[yY]/));
+
+print <<EOF;
+
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
+
+Another useful bit of functionality is the Linux eventfd, which is useful
+for faster signal handling (don't care) and intra-thread communications
+(more relevant). Kernel support for this will be probed at runtime, but
+your libc must contain the necessary wrapper. Glibc 2.7 and later should
+have this wrapper.
+
+EOF
+
+my $can_eventfd = -e "/usr/include/sys/eventfd.h";
+$can_eventfd = $ENV{EV_EVENTFD} if exists $ENV{EV_EVENTFD};
+$DEFINE .= " -DEV_USE_EVENTFD=" . (0 + (prompt ("Enable linux eventfd support (y/n)?", $can_eventfd ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 

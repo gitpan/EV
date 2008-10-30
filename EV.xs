@@ -26,6 +26,20 @@
 # include <pthread.h>
 #endif
 
+/* 5.10.0 */
+#ifndef SvREFCNT_inc_NN
+# define SvREFCNT_inc_NN(sv) SvREFCNT_inc (sv)
+#endif
+
+#if __GNUC__ >= 3
+# define expect(expr,value) __builtin_expect ((expr),(value))
+#else
+# define expect(expr,value) (expr)
+#endif
+
+#define expect_false(expr) expect ((expr) != 0, 0)
+#define expect_true(expr)  expect ((expr) != 0, 1)
+
 #define e_loop(w) INT2PTR (struct ev_loop *, SvIVX ((w)->loop))
 
 #define WFLAG_KEEPALIVE 1
@@ -193,7 +207,7 @@ e_bless (ev_watcher *w, HV *stash)
   return rv;
 }
 
-static SV *sv_events_cache;
+static SV *sv_self_cache, *sv_events_cache;
 
 static void
 e_cb (EV_P_ ev_watcher *w, int revents)
@@ -202,15 +216,27 @@ e_cb (EV_P_ ev_watcher *w, int revents)
   I32 mark = SP - PL_stack_base;
   SV *sv_self, *sv_events;
 
-  sv_self = newRV_inc (w->self); /* w->self MUST be blessed by now */
+  if (expect_true (sv_self_cache))
+    {
+      sv_self = sv_self_cache; sv_self_cache = 0;
+      SvRV_set (sv_self, SvREFCNT_inc_NN (w->self));
+    }
+  else
+    {
+      sv_self = newRV_inc (w->self); /* w->self MUST be blessed by now */
+      SvREADONLY_on (sv_self);
+    }
 
-  if (sv_events_cache)
+  if (expect_true (sv_events_cache))
     {
       sv_events = sv_events_cache; sv_events_cache = 0;
       SvIV_set (sv_events, revents);
     }
   else
-    sv_events = newSViv (revents);
+    {
+      sv_events = newSViv (revents);
+      SvREADONLY_on (sv_events);
+    }
 
   PUSHMARK (SP);
   EXTEND (SP, 2);
@@ -220,9 +246,16 @@ e_cb (EV_P_ ev_watcher *w, int revents)
   PUTBACK;
   call_sv (w->cb_sv, G_DISCARD | G_VOID | G_EVAL);
 
-  SvREFCNT_dec (sv_self);
+  if (expect_false (sv_self_cache))
+    SvREFCNT_dec (sv_self);
+  else
+    {
+      SvREFCNT_dec (SvRV (sv_self));
+      SvRV_set (sv_self, &PL_sv_undef);
+      sv_self_cache = sv_self;
+    }
 
-  if (sv_events_cache)
+  if (expect_false (sv_events_cache))
     SvREFCNT_dec (sv_events);
   else
     sv_events_cache = sv_events;
@@ -488,6 +521,8 @@ unsigned int ev_supported_backends ()
 unsigned int ev_recommended_backends ()
 
 unsigned int ev_embeddable_backends ()
+
+void ev_sleep (NV interval)
 
 NV ev_time ()
 

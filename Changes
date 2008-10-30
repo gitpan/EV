@@ -1,7 +1,19 @@
 Revision history for Perl extension EV
 
+3.48 Thu Oct 30 09:09:48 CET 2008
+	- (libev) use a generation counter to detect spurious epoll events
+          and recreate the kernel in such a case (sorry, it's slow, but
+          I didn't design epoll...).
+	- (libev) optimise away an EPOLL_CTL_ADD/MOD combo in the epoll
+          backend in some cases.
+        - (libev) use memset to initialise most arrays now and do away
+          with the init functions.
+        - speed up event callback invocation further (~15%), by
+          not creating the object reference each time.
+        - EV::sleep was documented, but not implemented. fun.
+
 3.45 Tue Oct 21 22:20:39 CEST 2008
-	- (libev) disable inotify usage on linux <2.6.25 (kernel bug)
+	- (libev) disable inotify usage on linux <2.6.25 (kernel bug).
 	- (libev) ev_embed will now automatically follow fork.
         - (libev) ev_once will now pass both io and timeout events to
           the callback when both happen concurrently, instead of giving
