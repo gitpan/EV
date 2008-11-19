@@ -82,7 +82,7 @@ no warnings;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.48';
+   our $VERSION = '3.49';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -119,7 +119,7 @@ modules (e.g. AnyEvent or Coro) and most portable event loop.
 
 For specific programs you can create additional event loops dynamically.
 
-If you want to take avdantage of kqueue (which often works properly for
+If you want to take advantage of kqueue (which often works properly for
 sockets only) even though the default loop doesn't enable it, you can
 I<embed> a kqueue loop into the default loop: running the default loop
 will then also service the kqueue loop to some extent. See the example in
@@ -201,15 +201,15 @@ Returns the current time in (fractional) seconds since the epoch.
 =item $time = $loop->now
 
 Returns the time the last event loop iteration has been started. This
-is the time that (relative) timers are based on, and refering to it is
+is the time that (relative) timers are based on, and referring to it is
 usually faster then calling EV::time.
 
 =item $backend = EV::backend
 
 =item $backend = $loop->backend
 
-Returns an integer describing the backend used by libev (EV::METHOD_SELECT
-or EV::METHOD_EPOLL).
+Returns an integer describing the backend used by libev (EV::BACKEND_SELECT
+or EV::BACKEND_EPOLL).
 
 =item EV::loop [$flags]
 
@@ -239,7 +239,7 @@ fast as possible.
 =item $count = $loop->loop_count
 
 Return the number of times the event loop has polled for new
-events. Sometiems useful as a generation counter.
+events. Sometimes useful as a generation counter.
 
 =item EV::once $fh_or_undef, $events, $timeout, $cb->($revents)
 
@@ -313,7 +313,7 @@ events.
 
 Each watcher type has its associated bit in revents, so you can use the
 same callback for multiple watchers. The event mask is named after the
-type, i..e. EV::child sets EV::CHILD, EV::prepare sets EV::PREPARE,
+type, i.e. EV::child sets EV::CHILD, EV::prepare sets EV::PREPARE,
 EV::periodic sets EV::PERIODIC and so on, with the exception of I/O events
 (which can set both EV::READ and EV::WRITE bits), and EV::timer (which
 uses EV::TIMEOUT).
@@ -419,7 +419,7 @@ because you happen to have this long-running UDP port watcher.
 In this case you can clear the keepalive status, which means that even
 though your watcher is active, it won't keep C<EV::loop> from returning.
 
-The initial value for keepalive is true (enabled), and you cna change it
+The initial value for keepalive is true (enabled), and you can change it
 any time.
 
 Example: Register an I/O watcher for some UDP socket but do not keep the
@@ -923,7 +923,7 @@ corresponding EV::check watcher will then clean up:
    };
 
 The callbacks of the created watchers will not be called as the watchers
-are destroyed before this cna happen (remember EV::check gets called
+are destroyed before this can happen (remember EV::check gets called
 first).
 
 The C<check_ns> variant doesn't start (activate) the newly created watcher.

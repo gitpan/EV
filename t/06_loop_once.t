@@ -9,7 +9,7 @@ use EV;
 my $l = new EV::Loop;
 
 for my $i (3..5) {
-   $l->once (undef, 0, $i * 0.2, sub {
+   $l->once (undef, 0, ($i - 3) * 0.5 + 1.0, sub {
       print $_[0] == EV::TIMEOUT ? "" : "not ", "ok $i\n";
    });
 }

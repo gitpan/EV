@@ -31,6 +31,11 @@
 # define SvREFCNT_inc_NN(sv) SvREFCNT_inc (sv)
 #endif
 
+/* 5.6.x */
+#ifndef SvRV_set
+# define SvRV_set(a,b) SvRV ((a)) = (b)
+#endif
+
 #if __GNUC__ >= 3
 # define expect(expr,value) __builtin_expect ((expr),(value))
 #else

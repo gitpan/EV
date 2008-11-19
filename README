@@ -86,7 +86,7 @@ EVENT LOOPS
 
     For specific programs you can create additional event loops dynamically.
 
-    If you want to take avdantage of kqueue (which often works properly for
+    If you want to take advantage of kqueue (which often works properly for
     sockets only) even though the default loop doesn't enable it, you can
     *embed* a kqueue loop into the default loop: running the default loop
     will then also service the kqueue loop to some extent. See the example
@@ -151,13 +151,13 @@ BASIC INTERFACE
     $time = EV::now
     $time = $loop->now
         Returns the time the last event loop iteration has been started.
-        This is the time that (relative) timers are based on, and refering
+        This is the time that (relative) timers are based on, and referring
         to it is usually faster then calling EV::time.
 
     $backend = EV::backend
     $backend = $loop->backend
         Returns an integer describing the backend used by libev
-        (EV::METHOD_SELECT or EV::METHOD_EPOLL).
+        (EV::BACKEND_SELECT or EV::BACKEND_EPOLL).
 
     EV::loop [$flags]
     $loop->loop ([$flags])
@@ -181,7 +181,7 @@ BASIC INTERFACE
     $count = EV::loop_count
     $count = $loop->loop_count
         Return the number of times the event loop has polled for new events.
-        Sometiems useful as a generation counter.
+        Sometimes useful as a generation counter.
 
     EV::once $fh_or_undef, $events, $timeout, $cb->($revents)
     $loop->once ($fh_or_undef, $events, $timeout, $cb->($revents))
@@ -245,7 +245,7 @@ WATCHER OBJECTS
 
     Each watcher type has its associated bit in revents, so you can use the
     same callback for multiple watchers. The event mask is named after the
-    type, i..e. EV::child sets EV::CHILD, EV::prepare sets EV::PREPARE,
+    type, i.e. EV::child sets EV::CHILD, EV::prepare sets EV::PREPARE,
     EV::periodic sets EV::PERIODIC and so on, with the exception of I/O
     events (which can set both EV::READ and EV::WRITE bits), and EV::timer
     (which uses EV::TIMEOUT).
@@ -340,7 +340,7 @@ WATCHER OBJECTS
         even though your watcher is active, it won't keep "EV::loop" from
         returning.
 
-        The initial value for keepalive is true (enabled), and you cna
+        The initial value for keepalive is true (enabled), and you can
         change it any time.
 
         Example: Register an I/O watcher for some UDP socket but do not keep
@@ -750,7 +750,7 @@ WATCHER TYPES
            };
 
         The callbacks of the created watchers will not be called as the
-        watchers are destroyed before this cna happen (remember EV::check
+        watchers are destroyed before this can happen (remember EV::check
         gets called first).
 
         The "check_ns" variant doesn't start (activate) the newly created

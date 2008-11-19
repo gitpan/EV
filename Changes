@@ -1,5 +1,14 @@
 Revision history for Perl extension EV
 
+3.49 Wed Nov 19 11:26:53 CET 2008
+        - fix typos in manpage (Alex Efros).
+	- increase timing even further, for the ever-overloaded cpan-tester
+          machines, and to the detriment of everybody else who wants a fast
+          make test.
+        - possible 5.6 compatibility.
+        - (libev) use inotify even on buggy kernels, but don't rely on it.
+        - (libev) use inotify only as an added hint on network filesystems.
+
 3.48 Thu Oct 30 09:09:48 CET 2008
 	- (libev) use a generation counter to detect spurious epoll events
           and recreate the kernel in such a case (sorry, it's slow, but
