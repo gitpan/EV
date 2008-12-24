@@ -1,5 +1,17 @@
 Revision history for Perl extension EV
 
+3.51 Wed Dec 24 23:01:59 CET 2008
+        - do not cache the arguments passed to callbacks if the refcount
+          indicates that the callback has stolen them.
+	- (libev) try to avoid librt on GNU/Linux.
+        - (libev) check port_getn return value dfferently, might potentially
+          avoid problems.
+        - (libev) fix a bug with stat watchers possibly causing freezes.
+        - (libev) work around OS X 10.5 breaking poll, now select is the
+          only viable choice left on that pile of garbage.
+	- play tester whore: disable some tests that typically fail only
+          on cpan tester machines.
+
 3.49 Wed Nov 19 11:26:53 CET 2008
         - fix typos in manpage (Alex Efros).
 	- increase timing even further, for the ever-overloaded cpan-tester

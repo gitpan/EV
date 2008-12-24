@@ -187,8 +187,9 @@ required by EV) now, or accept the default.
 
 EOF
 
-my $solaris_libs = $^O =~ /solaris/ ? " -lsocket -lnsl" : "";
-my $LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "-lpthread -lrt$solaris_libs";
+my $solaris_libs = $^O =~ /solaris/i ? "-lsocket -lnsl" : "";
+my $librt = $^O =~ /linux/i ? "-lpthread" : "-lpthread -lrt";
+my $LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "$librt $solaris_libs";
 
 
 print <<EOF;

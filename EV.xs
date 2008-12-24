@@ -251,7 +251,7 @@ e_cb (EV_P_ ev_watcher *w, int revents)
   PUTBACK;
   call_sv (w->cb_sv, G_DISCARD | G_VOID | G_EVAL);
 
-  if (expect_false (sv_self_cache))
+  if (expect_false (SvREFCNT (sv_self) != 1 || sv_self_cache))
     SvREFCNT_dec (sv_self);
   else
     {
@@ -260,12 +260,12 @@ e_cb (EV_P_ ev_watcher *w, int revents)
       sv_self_cache = sv_self;
     }
 
-  if (expect_false (sv_events_cache))
+  if (expect_false (SvREFCNT (sv_events) != 1 || sv_events_cache))
     SvREFCNT_dec (sv_events);
   else
     sv_events_cache = sv_events;
 
-  if (SvTRUE (ERRSV))
+  if (expect_false (SvTRUE (ERRSV)))
     {
       SPAGAIN;
       PUSHMARK (SP);
