@@ -82,7 +82,7 @@ no warnings;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.52';
+   our $VERSION = '3.53';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }

@@ -56,13 +56,12 @@ print <<EOF;
 POSIX optionally offers support for a (potentially) high-resolution
 realtime clock interface. In a good implementation, using it is faster
 than the normal method of using gettimeofday. Unfortunately, this option
-is also bound to be broken on some systems, so you can disable use and
-probing of this feature altogether here. Otherwise support for this clock
-type will be autodetected at compiletime.
+is also bound to be broken on some systems, and current EV versions do not
+actually call C<gettimeofday> very often, so ti defaults to no.
 
 EOF
 
-$DEFINE .= " -DEV_USE_REALTIME=" . (0 + (prompt ("Prefer clock_gettime (CLOCK_REALTIME) over gettimeofday (y/n)?", "y") =~ /[yY]/));
+$DEFINE .= " -DEV_USE_REALTIME=" . (0 + (prompt ("Prefer clock_gettime (CLOCK_REALTIME) over gettimeofday (y/n)?", "n") =~ /[yY]/));
 
 print <<EOF;
 

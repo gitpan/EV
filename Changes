@@ -1,5 +1,13 @@
 Revision history for Perl extension EV
 
+3.53 Sun Feb 15 02:38:20 CET 2009
+	- (libev) on win32, the event loop creation could randomly fail
+          due to an initialised variable having the wrong value.
+        - (libev) probe for CLOCK_REALTIME support at runtime as well and
+          fall back to gettimeofday if there is an error, to support older
+          operating systems with newer header files/libraries.
+        - prefer gettimeofday over clock_gettime by default.
+
 3.52 Wed Jan  7 21:46:14 CET 2009
 	- (libev) fix some issues in the select backend when in fd_set mode.
         - (libev) due to a thinko, instead of disabling everything but
