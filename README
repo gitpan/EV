@@ -93,7 +93,7 @@ EVENT LOOPS
     in the section about embed watchers for an example on how to achieve
     that.
 
-    $loop = new EV::loop [$flags]
+    $loop = new EV::Loop [$flags]
         Create a new event loop as per the specified flags. Please refer to
         the "ev_loop_new ()" function description in the libev documentation
         (<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#GLOBAL_FUNCTI
@@ -153,6 +153,43 @@ BASIC INTERFACE
         Returns the time the last event loop iteration has been started.
         This is the time that (relative) timers are based on, and referring
         to it is usually faster then calling EV::time.
+
+    EV::now_update
+    $loop->now_update
+        Establishes the current time by querying the kernel, updating the
+        time returned by "EV::now" in the progress. This is a costly
+        operation and is usually done automatically within "EV::loop".
+
+        This function is rarely useful, but when some event callback runs
+        for a very long time without entering the event loop, updating
+        libev's idea of the current time is a good idea.
+
+    EV::suspend
+    $loop->suspend
+    EV::resume
+    $loop->resume
+        These two functions suspend and resume a loop, for use when the loop
+        is not used for a while and timeouts should not be processed.
+
+        A typical use case would be an interactive program such as a game:
+        When the user presses "^Z" to suspend the game and resumes it an
+        hour later it would be best to handle timeouts as if no time had
+        actually passed while the program was suspended. This can be
+        achieved by calling "suspend" in your "SIGTSTP" handler, sending
+        yourself a "SIGSTOP" and calling "resume" directly afterwards to
+        resume timer processing.
+
+        Effectively, all "timer" watchers will be delayed by the time spend
+        between "suspend" and "resume", and all "periodic" watchers will be
+        rescheduled (that is, they will lose any events that would have
+        occured while suspended).
+
+        After calling "suspend" you must not call *any* function on the
+        given loop other than "resume", and you must not call "resume"
+        without a previous call to "suspend".
+
+        Calling "suspend"/"resume" has the side effect of updating the event
+        loop time (see "now_update").
 
     $backend = EV::backend
     $backend = $loop->backend

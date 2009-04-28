@@ -48,21 +48,27 @@
 #define e_loop(w) INT2PTR (struct ev_loop *, SvIVX ((w)->loop))
 
 #define WFLAG_KEEPALIVE 1
+#define WFLAG_UNREFED   2 /* has been unref'ed */
 
 #define UNREF(w)				\
-  if (!((w)->e_flags & WFLAG_KEEPALIVE)		\
-      && !ev_is_active (w))			\
-    ev_unref (e_loop (w));
+  if (!((w)->e_flags & (WFLAG_KEEPALIVE | WFLAG_UNREFED))	\
+      && ev_is_active (w))			\
+    {						\
+      ev_unref (e_loop (w));			\
+      (w)->e_flags |= WFLAG_UNREFED;		\
+    }
 
 #define REF(w)					\
-  if (!((w)->e_flags & WFLAG_KEEPALIVE)		\
-      && ev_is_active (w))			\
-    ev_ref (e_loop (w));
+  if ((w)->e_flags & WFLAG_UNREFED)		\
+    {						\
+      (w)->e_flags &= ~WFLAG_UNREFED;		\
+      ev_ref (e_loop (w));			\
+    }
 
 #define START(type,w)				\
   do {						\
-    UNREF (w);					\
     ev_ ## type ## _start (e_loop (w), w);	\
+    UNREF (w);					\
   } while (0)
 
 #define STOP(type,w)				\
@@ -220,6 +226,11 @@ e_cb (EV_P_ ev_watcher *w, int revents)
   dSP;
   I32 mark = SP - PL_stack_base;
   SV *sv_self, *sv_events;
+
+  /* libev might have stopped the watcher */
+  if (expect_false (w->e_flags & WFLAG_UNREFED)
+      && !ev_is_active (w))
+    REF (w);
 
   if (expect_true (sv_self_cache))
     {
@@ -390,16 +401,28 @@ BOOT:
 
     const_iv (EV_, UNDEF)
     const_iv (EV_, NONE)
-    const_iv (EV_, TIMEOUT)
     const_iv (EV_, READ)
     const_iv (EV_, WRITE)
+    const_iv (EV_, IO)
+    const_iv (EV_, TIMEOUT)
+    const_iv (EV_, TIMER)
+    const_iv (EV_, PERIODIC)
     const_iv (EV_, SIGNAL)
+    const_iv (EV_, CHILD)
+    const_iv (EV_, STAT)
     const_iv (EV_, IDLE)
+    const_iv (EV_, PREPARE)
     const_iv (EV_, CHECK)
+    const_iv (EV_, EMBED)
+    const_iv (EV_, FORK)
+    const_iv (EV_, ASYNC)
+    const_iv (EV_, CUSTOM)
     const_iv (EV_, ERROR)
 
-    const_iv (EV, LOOP_ONESHOT)
     const_iv (EV, LOOP_NONBLOCK)
+    const_iv (EV, LOOP_ONESHOT)
+
+    const_iv (EV, UNLOOP_CANCEL)
     const_iv (EV, UNLOOP_ONE)
     const_iv (EV, UNLOOP_ALL)
 
@@ -412,6 +435,9 @@ BOOT:
     const_iv (EV, FLAG_AUTO)
     const_iv (EV, FLAG_NOENV)
     const_iv (EV, FLAG_FORKCHECK)
+
+    const_iv (EV_, VERSION_MAJOR)
+    const_iv (EV_, VERSION_MINOR)
   };
 
   for (civ = const_iv + sizeof (const_iv) / sizeof (const_iv [0]); civ-- > const_iv; )
@@ -452,6 +478,8 @@ BOOT:
     evapi.loop_count           = ev_loop_count;
     evapi.now                  = ev_now;
     evapi.now_update           = ev_now_update;
+    evapi.suspend              = ev_suspend;
+    evapi.resume               = ev_resume;
     evapi.backend              = ev_backend;
     evapi.unloop               = ev_unloop;
     evapi.ref                  = ev_ref;
@@ -535,6 +563,12 @@ NV ev_now ()
 	C_ARGS: evapi.default_loop
 
 void ev_now_update ()
+	C_ARGS: evapi.default_loop
+
+void ev_suspend ()
+	C_ARGS: evapi.default_loop
+
+void ev_resume ()
 	C_ARGS: evapi.default_loop
 
 unsigned int ev_backend ()
@@ -749,8 +783,8 @@ int keepalive (ev_watcher *w, int new_value = 0)
 
         if (items > 1 && ((new_value ^ w->e_flags) & WFLAG_KEEPALIVE))
           {
-            REF (w);
             w->e_flags = (w->e_flags & ~WFLAG_KEEPALIVE) | new_value;
+            REF (w);
             UNREF (w);
           }
 }
@@ -935,7 +969,6 @@ void ev_timer_again (ev_timer *w)
         INIT:
         CHECK_REPEAT (w->repeat);
         CODE:
-        REF (w);
         ev_timer_again (e_loop (w), w);
         UNREF (w);
 
@@ -964,7 +997,6 @@ void ev_periodic_stop (ev_periodic *w)
 
 void ev_periodic_again (ev_periodic *w)
 	CODE:
-        REF (w);
         ev_periodic_again (e_loop (w), w);
         UNREF (w);
 
@@ -1256,6 +1288,10 @@ void ev_loop_verify (struct ev_loop *loop)
 NV ev_now (struct ev_loop *loop)
 
 void ev_now_update (struct ev_loop *loop)
+
+void ev_suspend (struct ev_loop *loop)
+
+void ev_resume (struct ev_loop *loop)
 
 void ev_set_io_collect_interval (struct ev_loop *loop, NV interval)
 

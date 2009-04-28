@@ -82,7 +82,7 @@ no warnings;
 use strict;
 
 BEGIN {
-   our $VERSION = '3.53';
+   our $VERSION = '3.6';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -127,7 +127,7 @@ the section about embed watchers for an example on how to achieve that.
 
 =over 4
 
-=item $loop = new EV::loop [$flags]
+=item $loop = new EV::Loop [$flags]
 
 Create a new event loop as per the specified flags. Please refer to
 the C<ev_loop_new ()> function description in the libev documentation
@@ -203,6 +203,48 @@ Returns the current time in (fractional) seconds since the epoch.
 Returns the time the last event loop iteration has been started. This
 is the time that (relative) timers are based on, and referring to it is
 usually faster then calling EV::time.
+
+=item EV::now_update
+
+=item $loop->now_update
+
+Establishes the current time by querying the kernel, updating the time
+returned by C<EV::now> in the progress. This is a costly operation and
+is usually done automatically within C<EV::loop>.
+
+This function is rarely useful, but when some event callback runs for a
+very long time without entering the event loop, updating libev's idea of
+the current time is a good idea.
+
+=item EV::suspend
+
+=item $loop->suspend
+
+=item EV::resume
+
+=item $loop->resume
+
+These two functions suspend and resume a loop, for use when the loop is
+not used for a while and timeouts should not be processed.
+
+A typical use case would be an interactive program such as a game:  When
+the user presses C<^Z> to suspend the game and resumes it an hour later it
+would be best to handle timeouts as if no time had actually passed while
+the program was suspended. This can be achieved by calling C<suspend>
+in your C<SIGTSTP> handler, sending yourself a C<SIGSTOP> and calling
+C<resume> directly afterwards to resume timer processing.
+
+Effectively, all C<timer> watchers will be delayed by the time spend
+between C<suspend> and C<resume>, and all C<periodic> watchers
+will be rescheduled (that is, they will lose any events that would have
+occured while suspended).
+
+After calling C<suspend> you B<must not> call I<any> function on the given
+loop other than C<resume>, and you B<must not> call C<resume>
+without a previous call to C<suspend>.
+
+Calling C<suspend>/C<resume> has the side effect of updating the event
+loop time (see C<now_update>).
 
 =item $backend = EV::backend
 

@@ -1,5 +1,29 @@
 Revision history for Perl extension EV
 
+3.6  Tue Apr 28 02:50:37 CEST 2009
+	- keepalive(0) could decrease the refcount of the loop
+          permanently.
+        - add ev_suspend/ev_resume, also make ev_now_update
+          accessible via the XS API.
+        - most EV::<eventtype> constants were missing and have been
+          added :/.
+        - add EV::VERSION_MAJOR/VERSION_MINOR constants.
+        - (libev) multiple timers becoming ready within an event loop
+          iteration will be invoked in the "correct" order now.
+        - (libev) do not leave the event loop early just because we have
+          no active watchers, fixing a problem when embedding a kqueue
+          loop that has active kernel events but no registered watchers
+          (reported by blacksand blacksand).
+        - (libev) correctly zero the idx values for arrays, so destroying
+          and reinitialising the default loop actually works (patch by
+          Malek Hadj-Ali).
+        - (libev) new EV::CUSTOM revents flag for use by applications.
+        - (libev) add documentation section about priorites.
+        - (libev) add a glossary to the dcoumentation.
+        - (libev) extend the ev_fork description slightly.
+        - (libev) optimize a jump out of call_pending.
+        - t/03_keepalive could fail when there was no actual error.
+
 3.53 Sun Feb 15 02:38:20 CET 2009
 	- (libev) on win32, the event loop creation could randomly fail
           due to an initialised variable having the wrong value.

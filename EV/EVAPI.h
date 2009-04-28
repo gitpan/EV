@@ -35,7 +35,7 @@ struct EVAPI {
   I32 ver;
   I32 rev;
 #define EV_API_VERSION 4
-#define EV_API_REVISION 2
+#define EV_API_REVISION 3
 
   struct ev_loop *default_loop;
   unsigned int supported_backends;
@@ -91,7 +91,10 @@ struct EVAPI {
   void (*async_start)(EV_P_ ev_async *);
   void (*async_stop) (EV_P_ ev_async *);
   void (*async_send) (EV_P_ ev_async *);
-  void (*now_update) (EV_P); /* TODO: move up on next major API bump */
+  /* TODO: move up on next major API bump */
+  void (*now_update) (EV_P);
+  void (*suspend)    (EV_P); 
+  void (*resume)     (EV_P); 
 };
 
 #if !EV_PROTOTYPES
@@ -115,6 +118,9 @@ struct EVAPI {
 # define ev_loop_fork(loop)        GEVAPI->loop_fork ((loop))
 # define ev_loop_count(loop)       GEVAPI->loop_count ((loop))
 # define ev_now(loop)              GEVAPI->now ((loop))
+# define ev_now_update(loop)       GEVAPI->now_update ((loop))
+# define ev_suspend(loop)          GEVAPI->suspend ((loop))
+# define ev_resume(loop)           GEVAPI->resume ((loop))
 # define ev_backend(loop)          GEVAPI->backend ((loop))
 # define ev_loop(l,flags)          GEVAPI->loop ((l), (flags))
 # define ev_unloop(loop,how)       GEVAPI->unloop ((loop), (how))
