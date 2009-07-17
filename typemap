@@ -22,7 +22,7 @@ const char *		T_PVbyte
 INPUT
 
 T_SIGNAL
-	if (($var = sv_signum ($arg)) <= 0)
+	if (($var = s_signum_croak ($arg)) <= 0)
           croak (\"'%s' is not a valid signal number or name\", SvPV_nolen ($arg));
 
 T_PVbyte
@@ -30,7 +30,7 @@ T_PVbyte
 
 T_LOOP
 	if (!(SvROK ($arg) && SvOBJECT (SvRV ($arg))
-              && (SvSTASH (SvRV ($arg)) == stash_loop)))
+              && (SvSTASH (SvRV ($arg)) == stash_loop || sv_derived_from ($arg, \"EV::Loop\"))))
           croak (\"object is not of type EV::Loop\");
 	$var = ($type)SvIVX (SvRV ($arg));
 

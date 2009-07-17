@@ -5,6 +5,7 @@ COPYING
 Makefile.PL
 typemap
 
+schmorp.h
 EV.xs
 EV.pm
 EV/EVAPI.h

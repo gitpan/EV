@@ -1,5 +1,28 @@
 Revision history for Perl extension EV
 
+3.7  Fri Jul 17 16:49:16 CEST 2009
+	- add EV::loop_verify and EV::loop_depth.
+        - use output filehandle for i/o watchers waiting
+          for EV_WRITE, otherwise input filehandle.
+        - use common schmorp.h header.
+        - add EV::Timer->remaining.
+        - allow for subclassing of EV::Loop (see the exciting
+          EV::Loop::Async module for an example).
+        - added EV::invoke_pending and EV::pending_count.
+
+        - (libev) ev_unloop and ev_loop wrongly used a global variable to
+          exit loops, instead of using a per-loop variable.
+	- (libev) the ev_set_io_collect_interval interpretation has changed.
+        - add new functionality: EV::invoke_pending, EV::pending_count.
+        - add $timer->remaining.
+        - add EV::loop_depth.
+        - (libev) calling unloop in fork/prepare watchers will no longer poll
+          for new events.
+        - (libev) use GetSystemTimeAsFileTime instead of _timeb on windows,
+          for slightly higher accuracy.
+        - (libev) actually 0-initialise struct sigaction when installing
+          signals.
+
 3.6  Tue Apr 28 02:50:37 CEST 2009
 	- keepalive(0) could decrease the refcount of the loop
           permanently.

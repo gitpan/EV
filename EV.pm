@@ -78,11 +78,10 @@ This module does not export any symbols.
 
 package EV;
 
-no warnings;
-use strict;
+use common::sense;
 
 BEGIN {
-   our $VERSION = '3.6';
+   our $VERSION = '3.7';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -333,6 +332,18 @@ These advanced functions set the minimum block interval when polling for I/O eve
 wait interval for timer events. See the libev documentation at
 L<http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#FUNCTIONS_CONTROLLING_THE_EVENT_LOOP>
 (locally installed as F<EV::libev>) for a more detailed discussion.
+
+=item $count = EV::pending_count
+
+=item $count = $loop->pending_count
+
+Returns the number of currently pending watchers.
+
+=item EV::invoke_pending
+
+=item $loop->invoke_pending
+
+Invoke all currently pending watchers.
 
 =back
 
@@ -1046,9 +1057,9 @@ The C<embed_ns> variant doesn't start (activate) the newly created watcher.
 
 =head3 ASYNC WATCHERS - how to wake up another event loop
 
-Async watchers are provided by EV, but have little use in perl directly, as perl
-neither supports threads nor direct access to signal handlers or other
-contexts where they could be of value.
+Async watchers are provided by EV, but have little use in perl directly,
+as perl neither supports threads running in parallel nor direct access to
+signal handlers or other contexts where they could be of value.
 
 It is, however, possible to use them from the XS level.
 
@@ -1086,11 +1097,11 @@ watcher:
 This ensures that perl gets into control for a short time to handle any
 pending signals, and also ensures (slightly) slower overall operation.
 
-=head1 THREADS
+=head1 ITHREADS
 
-Threads are not supported by this module in any way. Perl pseudo-threads
-is evil stuff and must die. As soon as Perl gains real threads I will work
-on thread support for it.
+Ithreads are not supported by this module in any way. Perl pseudo-threads
+is evil stuff and must die. Real threads as provided by Coro are fully
+supported (and enhanced support is available via L<Coro::EV>).
 
 =head1 FORK
 

@@ -144,7 +144,7 @@ safe fallback to other methods when it cannot be used.
 
 Note that kqueue is broken on most operating systems, so by default it
 won't be used on many platforms, but you can still create your own event
-loop with kqueue backend.
+loop with kqueue backend if you ask specifically for it.
 
 Here is what we know:
 
@@ -198,7 +198,8 @@ print <<EOF;
 
 A backend of a different kind is the Linux inotify(7) interface, which can
 be used to speed up (and reduce resource consumption) of stat watchers. If
-you have it, it is usually a good idea to enable it.
+you have the include file and libc support for it, it is usually a good
+idea to enable it, as kernel availability is detected at runtime.
 
 EOF
 
@@ -249,6 +250,7 @@ WriteMakefile(
     LIBS => [$LIBS],
     PREREQ_PM => {
        @anyevent,
+       "common::sense" => 0,
     },
     VERSION_FROM => "EV.pm",
     PM           => {

@@ -2,11 +2,18 @@
 #include "perl.h"
 #include "XSUB.h"
 
-/*#include <netinet/in.h>*/
-
 /* fix perl api breakage */
 #undef signal
 #undef sigaction
+
+#include "schmorp.h"
+
+/* old API compatibility */
+static int
+sv_fileno (SV *fh)
+{
+  return s_fileno (fh, 0);
+}
 
 #define EV_PROTOTYPES 1
 #define EV_USE_NANOSLEEP EV_USE_MONOTONIC
@@ -25,25 +32,6 @@
 #ifndef _WIN32
 # include <pthread.h>
 #endif
-
-/* 5.10.0 */
-#ifndef SvREFCNT_inc_NN
-# define SvREFCNT_inc_NN(sv) SvREFCNT_inc (sv)
-#endif
-
-/* 5.6.x */
-#ifndef SvRV_set
-# define SvRV_set(a,b) SvRV ((a)) = (b)
-#endif
-
-#if __GNUC__ >= 3
-# define expect(expr,value) __builtin_expect ((expr),(value))
-#else
-# define expect(expr,value) (expr)
-#endif
-
-#define expect_false(expr) expect ((expr) != 0, 0)
-#define expect_true(expr)  expect ((expr) != 0, 1)
 
 #define e_loop(w) INT2PTR (struct ev_loop *, SvIVX ((w)->loop))
 
@@ -107,70 +95,15 @@ static HV
   *stash_fork,
   *stash_async;
 
-#ifndef SIG_SIZE
-/* kudos to Slaven Rezic for the idea */
-static char sig_size [] = { SIG_NUM };
-# define SIG_SIZE (sizeof (sig_size) + 1)
-#endif
-
-static Signal
-sv_signum (SV *sig)
-{
-  Signal signum;
-
-  SvGETMAGIC (sig);
-
-  for (signum = 1; signum < SIG_SIZE; ++signum)
-    if (strEQ (SvPV_nolen (sig), PL_sig_name [signum]))
-      return signum;
-
-  signum = SvIV (sig);
-
-  if (signum > 0 && signum < SIG_SIZE)
-    return signum;
-
-  return -1;
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // Event
 
 static void e_cb (EV_P_ ev_watcher *w, int revents);
 
-static int
-sv_fileno (SV *fh)
-{
-  SvGETMAGIC (fh);
-
-  if (SvROK (fh))
-    fh = SvRV (fh);
-
-  if (SvTYPE (fh) == SVt_PVGV)
-    return PerlIO_fileno (IoIFP (sv_2io (fh)));
-
-  if (SvOK (fh) && (SvIV (fh) >= 0) && (SvIV (fh) < 0x7fffffffL))
-    return SvIV (fh);
-
-  return -1;
-}
-
-static SV *
-e_get_cv (SV *cb_sv)
-{
-  HV *st;
-  GV *gvp;
-  CV *cv = sv_2cv (cb_sv, &st, &gvp, 0);
-
-  if (!cv)
-    croak ("EV watcher callback must be a CODE reference");
-
-  return (SV *)cv;
-}
-
 static void *
 e_new (int size, SV *cb_sv, SV *loop)
 {
-  SV *cv = cb_sv ? e_get_cv (cb_sv) : 0;
+  SV *cv = cb_sv ? s_get_cv_croak (cb_sv) : 0;
   ev_watcher *w;
   SV *self = NEWSV (0, size);
   SvPOK_only (self);
@@ -466,7 +399,7 @@ BOOT:
     evapi.ver                  = EV_API_VERSION;
     evapi.rev                  = EV_API_REVISION;
     evapi.sv_fileno            = sv_fileno;
-    evapi.sv_signum            = sv_signum;
+    evapi.sv_signum            = s_signum;
     evapi.supported_backends   = ev_supported_backends ();
     evapi.recommended_backends = ev_recommended_backends ();
     evapi.embeddable_backends  = ev_embeddable_backends ();
@@ -476,12 +409,19 @@ BOOT:
     evapi.loop_destroy         = ev_loop_destroy;
     evapi.loop_fork            = ev_loop_fork;
     evapi.loop_count           = ev_loop_count;
+    evapi.loop_depth           = ev_loop_depth;
+    evapi.set_userdata         = ev_set_userdata;
+    evapi.userdata             = ev_userdata;
     evapi.now                  = ev_now;
     evapi.now_update           = ev_now_update;
     evapi.suspend              = ev_suspend;
     evapi.resume               = ev_resume;
     evapi.backend              = ev_backend;
     evapi.unloop               = ev_unloop;
+    evapi.invoke_pending       = ev_invoke_pending;
+    evapi.pending_count        = ev_pending_count;
+    evapi.set_loop_release_cb  = ev_set_loop_release_cb;
+    evapi.set_invoke_pending_cb= ev_set_invoke_pending_cb;
     evapi.ref                  = ev_ref;
     evapi.unref                = ev_unref;
     evapi.loop                 = ev_loop;
@@ -491,6 +431,7 @@ BOOT:
     evapi.timer_start          = ev_timer_start;
     evapi.timer_stop           = ev_timer_stop;
     evapi.timer_again          = ev_timer_again;
+    evapi.timer_remaining      = ev_timer_remaining;
     evapi.periodic_start       = ev_periodic_start;
     evapi.periodic_stop        = ev_periodic_stop;
     evapi.signal_start         = ev_signal_start;
@@ -574,7 +515,13 @@ void ev_resume ()
 unsigned int ev_backend ()
 	C_ARGS: evapi.default_loop
 
+void ev_loop_verify ()
+	C_ARGS: evapi.default_loop
+
 unsigned int ev_loop_count ()
+	C_ARGS: evapi.default_loop
+
+unsigned int ev_loop_depth ()
 	C_ARGS: evapi.default_loop
 
 void ev_set_io_collect_interval (NV interval)
@@ -595,18 +542,24 @@ void ev_feed_fd_event (int fd, int revents = EV_NONE)
 void ev_feed_signal_event (SV *signal)
 	CODE:
 {
-  	Signal signum = sv_signum (signal);
+  	Signal signum = s_signum (signal);
         CHECK_SIG (signal, signum);
 
         ev_feed_signal_event (evapi.default_loop, signum);
 }
+
+unsigned int ev_pending_count ()
+	C_ARGS: evapi.default_loop
+
+void ev_invoke_pending ()
+	C_ARGS: evapi.default_loop
 
 ev_io *io (SV *fh, int events, SV *cb)
 	ALIAS:
         io_ns = 1
 	CODE:
 {
-	int fd = sv_fileno (fh);
+	int fd = s_fileno (fh, events & EV_WRITE);
         CHECK_FD (fh, fd);
 
         RETVAL = e_new (sizeof (ev_io), cb, default_loop_sv);
@@ -651,7 +604,7 @@ ev_signal *signal (SV *signal, SV *cb)
         signal_ns = 1
 	CODE:
 {
-  	Signal signum = sv_signum (signal);
+  	Signal signum = s_signum (signal);
         CHECK_SIG (signal, signum);
 
         RETVAL = e_new (sizeof (ev_signal), cb, default_loop_sv);
@@ -752,7 +705,7 @@ void once (SV *fh, int events, SV *timeout, SV *cb)
 	CODE:
         ev_once (
            evapi.default_loop,
-           sv_fileno (fh), events,
+           s_fileno (fh, events & EV_WRITE), events,
            SvOK (timeout) ? SvNV (timeout) : -1.,
            e_once_cb,
            newSVsv (cb)
@@ -796,7 +749,7 @@ SV *cb (ev_watcher *w, SV *new_cb = 0)
 {
         if (items > 1)
           {
-            new_cb = e_get_cv (new_cb);
+            new_cb = s_get_cv_croak (new_cb);
             RETVAL = newRV_noinc (w->cb_sv);
             w->cb_sv = SvREFCNT_inc (new_cb);
           }
@@ -876,7 +829,7 @@ void DESTROY (ev_io *w)
 void set (ev_io *w, SV *fh, int events)
 	CODE:
 {
-	int fd = sv_fileno (fh);
+	int fd = s_fileno (fh, events & EV_WRITE);
         CHECK_FD (fh, fd);
 
         sv_setsv (w->fh, fh);
@@ -888,7 +841,7 @@ SV *fh (ev_io *w, SV *new_fh = 0)
 {
         if (items > 1)
           {
-            int fd = sv_fileno (new_fh);
+            int fd = s_fileno (new_fh, w->events & EV_WRITE);
             CHECK_FD (new_fh, fd);
 
             RETVAL = w->fh;
@@ -931,7 +884,7 @@ void DESTROY (ev_signal *w)
 void set (ev_signal *w, SV *signal)
 	CODE:
 {
-	Signal signum = sv_signum (signal);
+	Signal signum = s_signum (signal);
         CHECK_SIG (signal, signum);
 
         RESET (signal, w, (w, signum));
@@ -944,7 +897,7 @@ int signal (ev_signal *w, SV *new_signal = 0)
 
         if (items > 1)
           {
-            Signal signum = sv_signum (new_signal);
+            Signal signum = s_signum (new_signal);
             CHECK_SIG (new_signal, signum);
 
             RESET (signal, w, (w, signum));
@@ -971,6 +924,9 @@ void ev_timer_again (ev_timer *w)
         CODE:
         ev_timer_again (e_loop (w), w);
         UNREF (w);
+
+NV ev_timer_remaining (ev_timer *w)
+	C_ARGS: e_loop (w), w
 
 void DESTROY (ev_timer *w)
 	CODE:
@@ -1301,18 +1257,24 @@ unsigned int ev_backend (struct ev_loop *loop)
 
 unsigned int ev_loop_count (struct ev_loop *loop)
 
+unsigned int ev_loop_depth (struct ev_loop *loop)
+
 void ev_loop (struct ev_loop *loop, int flags = 0)
 
 void ev_unloop (struct ev_loop *loop, int how = 1)
 
 void ev_feed_fd_event (struct ev_loop *loop, int fd, int revents = EV_NONE)
 
+unsigned int ev_pending_count (struct ev_loop *loop)
+
+void ev_invoke_pending (struct ev_loop *loop)
+
 #if 0
 
 void ev_feed_signal_event (struct ev_loop *loop, SV *signal)
 	CODE:
 {
-  	Signal signum = sv_signum (signal);
+  	Signal signum = s_signum (signal);
         CHECK_SIG (signal, signum);
 
         ev_feed_signal_event (loop, signum);
@@ -1325,7 +1287,7 @@ ev_io *io (struct ev_loop *loop, SV *fh, int events, SV *cb)
         io_ns = 1
 	CODE:
 {
-	int fd = sv_fileno (fh);
+	int fd = s_fileno (fh, events & EV_WRITE);
         CHECK_FD (fh, fd);
 
         RETVAL = e_new (sizeof (ev_io), cb, ST (0));
@@ -1372,7 +1334,7 @@ ev_signal *signal (struct ev_loop *loop, SV *signal, SV *cb)
         signal_ns = 1
 	CODE:
 {
-  	Signal signum = sv_signum (signal);
+  	Signal signum = s_signum (signal);
         CHECK_SIG (signal, signum);
 
         RETVAL = e_new (sizeof (ev_signal), cb, ST (0));
@@ -1475,7 +1437,7 @@ void once (struct ev_loop *loop, SV *fh, int events, SV *timeout, SV *cb)
 	CODE:
         ev_once (
            loop,
-           sv_fileno (fh), events,
+           s_fileno (fh, events & EV_WRITE), events,
            SvOK (timeout) ? SvNV (timeout) : -1.,
            e_once_cb,
            newSVsv (cb)
