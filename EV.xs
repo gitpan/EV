@@ -66,14 +66,37 @@ sv_fileno (SV *fh)
   } while (0)
 
 #define RESET(type,w,seta)			\
- do {                                           \
-   int active = ev_is_active (w);               \
-   if (active) STOP (type, w);                  \
-   ev_ ## type ## _set seta;                    \
-   if (active) START (type, w);                 \
- } while (0)
+  do {                                          \
+    int active = ev_is_active (w);              \
+    if (active) STOP (type, w);                 \
+    ev_ ## type ## _set seta;                   \
+    if (active) START (type, w);                \
+  } while (0)
 
 typedef int Signal;
+
+/* horrible... */
+#define CHECK_SIGNAL_CAN_START(w)		\
+  do {						\
+    /* dive into the internals of libev to avoid aborting in libev */ \
+    if (signals [(w)->signum - 1].loop		\
+        && signals [(w)->signum - 1].loop != e_loop (w)) \
+      croak ("unable to start signal watcher, signal %d already registered in another loop", w->signum); \
+  } while (0)
+
+#define START_SIGNAL(w)				\
+  do {						\
+    CHECK_SIGNAL_CAN_START (w);			\
+    START (signal, w);				\
+  } while (0)					\
+
+#define RESET_SIGNAL(w,seta)			\
+  do {                                          \
+    int active = ev_is_active (w);              \
+    if (active) STOP (signal, w);               \
+    ev_ ## signal ## _set seta;                 \
+    if (active) START_SIGNAL (w);               \
+  } while (0)
 
 static SV *default_loop_sv;
 
@@ -557,10 +580,17 @@ void ev_invoke_pending ()
 ev_io *io (SV *fh, int events, SV *cb)
 	ALIAS:
         io_ns = 1
+        _ae_io = 2
 	CODE:
 {
 	int fd = s_fileno (fh, events & EV_WRITE);
         CHECK_FD (fh, fd);
+
+        if (ix == 2)
+          {
+            ix = 0;
+            events = events ? EV_WRITE : EV_READ;
+          }
 
         RETVAL = e_new (sizeof (ev_io), cb, default_loop_sv);
         RETVAL->fh = newSVsv (fh);
@@ -609,7 +639,7 @@ ev_signal *signal (SV *signal, SV *cb)
 
         RETVAL = e_new (sizeof (ev_signal), cb, default_loop_sv);
         ev_signal_set (RETVAL, signum);
-        if (!ix) START (signal, RETVAL);
+        if (!ix) START_SIGNAL (RETVAL);
 }
 	OUTPUT:
         RETVAL
@@ -870,7 +900,7 @@ MODULE = EV		PACKAGE = EV::Signal	PREFIX = ev_signal_
 
 void ev_signal_start (ev_signal *w)
 	CODE:
-        START (signal, w);
+        START_SIGNAL (w);
 
 void ev_signal_stop (ev_signal *w)
 	CODE:
@@ -887,7 +917,7 @@ void set (ev_signal *w, SV *signal)
 	Signal signum = s_signum (signal);
         CHECK_SIG (signal, signum);
 
-        RESET (signal, w, (w, signum));
+        RESET_SIGNAL (w, (w, signum));
 }
 
 int signal (ev_signal *w, SV *new_signal = 0)
@@ -900,7 +930,7 @@ int signal (ev_signal *w, SV *new_signal = 0)
             Signal signum = s_signum (new_signal);
             CHECK_SIG (new_signal, signum);
 
-            RESET (signal, w, (w, signum));
+            RESET_SIGNAL (w, (w, signum));
           }
 }
 	OUTPUT:
@@ -1327,8 +1357,6 @@ SV *periodic (struct ev_loop *loop, NV at, NV interval, SV *reschedule_cb, SV *c
 	OUTPUT:
         RETVAL
 
-#if 0
-
 ev_signal *signal (struct ev_loop *loop, SV *signal, SV *cb)
 	ALIAS:
         signal_ns = 1
@@ -1339,12 +1367,10 @@ ev_signal *signal (struct ev_loop *loop, SV *signal, SV *cb)
 
         RETVAL = e_new (sizeof (ev_signal), cb, ST (0));
         ev_signal_set (RETVAL, signum);
-        if (!ix) START (signal, RETVAL);
+        if (!ix) START_SIGNAL (RETVAL);
 }
 	OUTPUT:
         RETVAL
-
-#endif
 
 ev_idle *idle (struct ev_loop *loop, SV *cb)
 	ALIAS:

@@ -15,14 +15,14 @@ use EV;
 my $l = new EV::Loop;
 
 for my $i (3..5) {
-   $l->once (undef, 0, ($i - 3) * 0.3 + 0.6, sub {
+   $l->once (undef, 0, ($i - 3) * 0.1 + 0.2, sub {
       print $_[0] == EV::TIMEOUT ? "" : "not ", "ok $i\n";
    });
 }
 
 socketpair my $s1, my $s2, AF_UNIX, SOCK_STREAM, PF_UNSPEC;
 
-$l->once ($s1, EV::WRITE, 0.3, sub {
+$l->once ($s1, EV::WRITE, 0.1, sub {
    print $_[0] & EV::WRITE ? "" : "not ", "ok 2\n";
 });
 

@@ -1,5 +1,20 @@
 Revision history for Perl extension EV
 
+3.8  Sun Aug  9 15:30:10 CEST 2009
+	- implement $loop->signal/signal_ns.
+        - (libev) incompatible change: do not necessarily reset signal
+          handler to SIG_DFL when a sighandler is stopped.
+        - (libev) ev_default_destroy did not properly free or zero some
+          members, potentially causing crashes and memory corruption on
+          repated ev_default_destroy/ev_default_loop calls.
+	- (libev) take advantage of signalfd on GNU/Linux systems.
+        - (libev) document that the signal mask might be in an unspecified
+          state when using libev's signal handling.
+        - (libev) take advantage of some GNU/Linux calls to set
+          cloexec/nonblock on fd creation, to avoid race conditions.
+        - implement internal glue code to interface more efficiently
+          with AnyEvent.
+
 3.7  Fri Jul 17 16:49:16 CEST 2009
 	- add EV::loop_verify and EV::loop_depth.
         - use output filehandle for i/o watchers waiting

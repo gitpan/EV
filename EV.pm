@@ -81,7 +81,7 @@ package EV;
 use common::sense;
 
 BEGIN {
-   our $VERSION = '3.7';
+   our $VERSION = '3.8';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -700,8 +700,16 @@ Return the time that the watcher is expected to trigger next.
 
 =item $w = EV::signal_ns $signal, $callback
 
+=item $w = $loop->signal ($signal, $callback)
+
+=item $w = $loop->signal_ns ($signal, $callback)
+
 Call the callback when $signal is received (the signal can be specified by
 number or by name, just as with C<kill> or C<%SIG>).
+
+Only one event loop can grab a given signal - attempting to grab the same
+signal from two EV loops will crash the program immediately or cause data
+corruption.
 
 EV will grab the signal for the process (the kernel only allows one
 component to receive a signal at a time) when you start a signal watcher,

@@ -11,7 +11,7 @@
    },
    "generated_by" : "ExtUtils::MakeMaker version 6.50",
    "distribution_type" : "module",
-   "version" : "3.7",
+   "version" : "3.8",
    "name" : "EV",
    "author" : [],
    "license" : "unknown",

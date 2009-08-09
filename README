@@ -569,8 +569,14 @@ WATCHER TYPES
    SIGNAL WATCHERS - signal me when a signal gets signalled!
     $w = EV::signal $signal, $callback
     $w = EV::signal_ns $signal, $callback
+    $w = $loop->signal ($signal, $callback)
+    $w = $loop->signal_ns ($signal, $callback)
         Call the callback when $signal is received (the signal can be
         specified by number or by name, just as with "kill" or %SIG).
+
+        Only one event loop can grab a given signal - attempting to grab the
+        same signal from two EV loops will crash the program immediately or
+        cause data corruption.
 
         EV will grab the signal for the process (the kernel only allows one
         component to receive a signal at a time) when you start a signal

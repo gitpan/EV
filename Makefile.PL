@@ -1,4 +1,4 @@
-use 5.006;
+use 5.008002;
 
 use strict qw(vars subs);
 use Config;
@@ -223,6 +223,22 @@ EOF
 my $can_eventfd = -e "/usr/include/sys/eventfd.h";
 $can_eventfd = $ENV{EV_EVENTFD} if exists $ENV{EV_EVENTFD};
 $DEFINE .= " -DEV_USE_EVENTFD=" . (0 + (prompt ("Enable linux eventfd support (y/n)?", $can_eventfd ? "y" : "n") =~ /[yY]/));
+
+print <<EOF;
+
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
+
+Another sometimes useful bit of functionality is the Linux signalfd, which
+is useful for faster signal handling (don't care). Kernel support for
+this will be probed at runtime, but your libc must contain the necessary
+wrapper and include files. Glibc 2.9 and later should have this wrapper.
+
+EOF
+
+my $can_signalfd = -e "/usr/include/sys/signalfd.h";
+$can_signalfd = $ENV{EV_SIGNALFD} if exists $ENV{EV_SIGNALFD};
+$DEFINE .= " -DEV_USE_SIGNALFD=" . (0 + (prompt ("Enable linux signalfd support (y/n)?", $can_signalfd ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 

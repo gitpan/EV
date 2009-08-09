@@ -21,6 +21,7 @@ t/06_loop_once.t
 t/07_loop_timer.t
 t/08_async.t
 t/09_brandon.t
+t/11_signal.t
 
 libev/LICENSE
 libev/README
