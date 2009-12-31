@@ -388,9 +388,13 @@ BOOT:
     const_iv (EV, BACKEND_KQUEUE)
     const_iv (EV, BACKEND_DEVPOLL)
     const_iv (EV, BACKEND_PORT)
+    const_iv (EV, BACKEND_ALL)
     const_iv (EV, FLAG_AUTO)
-    const_iv (EV, FLAG_NOENV)
     const_iv (EV, FLAG_FORKCHECK)
+    const_iv (EV, FLAG_SIGNALFD)
+    const_iv (EV, FLAG_NOENV)
+    const_iv (EV, FLAG_NOSIGFD) /* compatibility, always 0 */
+    const_iv (EV, FLAG_NOINOTIFY)
 
     const_iv (EV_, VERSION_MAJOR)
     const_iv (EV_, VERSION_MINOR)

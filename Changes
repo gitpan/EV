@@ -1,5 +1,23 @@
 Revision history for Perl extension EV
 
+Changes marked with (libev) are changes in libev, and have more
+documentation in the libev Changes file.
+
+3.9  Thu Dec 31 07:59:59 CET 2009
+	- disable t/07* under automatic testing.
+        - increase t/09* timeouts as netbsd has *horribly* broken
+          select/kevent that *usually* sleep >>0.6s instead of 0.3.
+        - add constants EV::FLAG_NOSIGFD, EV::FLAG_NOINOTIFY and
+          EV::BACKEND_ALL.
+        - (libev) signalfd is no longer used by default.
+	- (libev) backport inotify code to C89.
+        - (libev) inotify file descriptors could leak into child processes.
+        - (libev) ev_stat watchers could keep an errornous extra ref on the loop.
+        - (libev) take advantage of inotify_init1, if available.
+        - (libev) the signal handling pipe wasn't always initialised under windows.
+        - changed minimum glibc requirement from glibc 2.9 to 2.7, for signalfd.
+        - (libev) only replace ev_stat.prev when we detect an actual difference.
+
 3.8  Sun Aug  9 15:30:10 CEST 2009
 	- implement $loop->signal/signal_ns.
         - (libev) incompatible change: do not necessarily reset signal

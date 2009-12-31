@@ -368,7 +368,7 @@ WATCHER OBJECTS
     $previous_state = $w->keepalive ($bool)
         Normally, "EV::loop" will return when there are no active watchers
         (which is a "deadlock" because no progress can be made anymore).
-        This is convinient because it allows you to start your watchers (and
+        This is convenient because it allows you to start your watchers (and
         your jobs), call "EV::loop" once and when it returns you know that
         all your jobs are finished (or they forgot to register some watchers
         for their task :).

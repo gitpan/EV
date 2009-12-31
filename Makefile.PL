@@ -232,7 +232,7 @@ print <<EOF;
 Another sometimes useful bit of functionality is the Linux signalfd, which
 is useful for faster signal handling (don't care). Kernel support for
 this will be probed at runtime, but your libc must contain the necessary
-wrapper and include files. Glibc 2.9 and later should have this wrapper.
+wrapper. Glibc 2.7 and later should have this wrapper.
 
 EOF
 
