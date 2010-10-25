@@ -27,7 +27,7 @@ for my $it ("", 1, 2) {
    };
 
    print "ok ${it}1\n";
-   EV::loop;
+   EV::run;
    print "ok ${it}6\n";
    EV::signal INT => sub { };
    print "ok ${it}7\n";
@@ -38,3 +38,4 @@ for my $it ("", 1, 2) {
    EV::default_loop;
    print "ok ", ${it}*10 + 10, "\n";
 }
+

@@ -3,6 +3,24 @@ Revision history for Perl extension EV
 Changes marked with (libev) are changes in libev, and have more
 documentation in the libev Changes file.
 
+4.00 Mon Oct 25 13:30:09 CEST 2010
+	- many API changes, see the manual.
+        - (libev) lots and lots of bugfixes, see the ev documentation.
+	- fix a bug where inotify usage would parse the same event
+          multiple times, causing various forms of breakage.
+	- greatly reduce stack usage for inotify (8kb to <0.5kb).
+        - expose ev_depth and ev_verify via the XS API.
+        - implement ev_cleanup watchers.
+        - (libev) ev_embed_stop did not correctly stop the watcher.
+        - (libev) disable poll backend on AIX.
+        - (libev) rename EV_TIMEOUT to EV_TIMER.
+        - (libev) add section on accept() problems to the manpage.
+        - (libev) no child watchers on win32.
+        - make code more aliasing compliant, in case perl is ever
+          translated to C.
+        - document the EV::CHECK runtime unavailability.
+        - ported to minix 3.1.7.
+
 3.9  Thu Dec 31 07:59:59 CET 2009
 	- disable t/07* under automatic testing.
         - increase t/09* timeouts as netbsd has *horribly* broken

@@ -60,7 +60,7 @@ for my $i (1..125) {
    });
 }
 
-EV::loop;
+EV::run;
 print "ok 1\n";
 $l->loop;
 print "ok 752\n";

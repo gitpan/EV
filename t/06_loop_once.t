@@ -27,5 +27,5 @@ $l->once ($s1, EV::WRITE, 0.1, sub {
 });
 
 print "ok 1\n";
-$l->loop;
+$l->run;
 print "ok 6\n";
