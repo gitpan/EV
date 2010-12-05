@@ -343,6 +343,12 @@ e_periodic_cb (ev_periodic *w, ev_tstamp now)
 #define CHECK_SIG(sv,num) if ((num) < 0) \
   croak ("illegal signal number or name: %s", SvPV_nolen (sv));
 
+static void
+default_fork (void)
+{
+  ev_loop_fork (EV_DEFAULT_UC);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // XS interface functions
 
@@ -367,7 +373,7 @@ BOOT:
     const_iv (EV_, READ)
     const_iv (EV_, WRITE)
     const_iv (EV_, IO)
-    const_iv (EV_, TIMEOUT)
+    const_iv (EV_, TIMER)
     const_iv (EV_, PERIODIC)
     const_iv (EV_, SIGNAL)
     const_iv (EV_, CHILD)
@@ -399,17 +405,15 @@ BOOT:
     const_iv (EV, FLAG_FORKCHECK)
     const_iv (EV, FLAG_SIGNALFD)
     const_iv (EV, FLAG_NOENV)
-    const_iv (EV, FLAG_NOSIGFD) /* compatibility, always 0 */
     const_iv (EV, FLAG_NOINOTIFY)
 
     const_iv (EV_, VERSION_MAJOR)
     const_iv (EV_, VERSION_MINOR)
 #if EV_COMPAT3
-    const_iv (EV_, TIMER)
-
+    const_iv (EV, FLAG_NOSIGFD) /* compatibility, always 0 */
+    const_iv (EV_, TIMEOUT)
     const_iv (EV, LOOP_NONBLOCK)
     const_iv (EV, LOOP_ONESHOT)
-
     const_iv (EV, UNLOOP_CANCEL)
     const_iv (EV, UNLOOP_ONE)
     const_iv (EV, UNLOOP_ALL)
@@ -511,7 +515,7 @@ BOOT:
     SvREADONLY_on (sv);
   }
 #if !defined(_WIN32) && !defined(_MINIX)
-  pthread_atfork (0, 0, ev_default_fork);
+  pthread_atfork (0, 0, default_fork);
 #endif
 }
 
@@ -756,6 +760,8 @@ ev_stat *stat (SV *path, NV interval, SV *cb)
 	OUTPUT:
         RETVAL
 
+#ifndef EV_NO_LOOPS
+
 ev_embed *embed (struct ev_loop *loop, SV *cb = 0)
 	ALIAS:
         embed_ns = 1
@@ -771,6 +777,8 @@ ev_embed *embed (struct ev_loop *loop, SV *cb = 0)
 }
 	OUTPUT:
         RETVAL
+
+#endif
 
 ev_async *async (SV *cb)
 	ALIAS:
@@ -1323,6 +1331,8 @@ SV *ev_async_async_pending (ev_async *w)
 	OUTPUT:
         RETVAL
 
+#ifndef EV_NO_LOOPS
+
 MODULE = EV		PACKAGE = EV::Loop	PREFIX = ev_
 
 SV *new (SV *klass, unsigned int flags = 0)
@@ -1570,4 +1580,6 @@ void once (struct ev_loop *loop, SV *fh, int events, SV *timeout, SV *cb)
            e_once_cb,
            newSVsv (cb)
         );
+
+#endif
 

@@ -3,6 +3,13 @@ Revision history for Perl extension EV
 Changes marked with (libev) are changes in libev, and have more
 documentation in the libev Changes file.
 
+4.01 Sun Dec  5 12:42:13 CET 2010
+	- fully support EV_COMPAT3=0.
+        - default_fork was stupidly defined as inline.
+        - ask cpan to upgrade AnyEvent if < 5.29.
+        - support EV_EXTRA_DEFS during configuration.
+        - support -DEV_NO_LOOPS for snakker build.
+
 4.00 Mon Oct 25 13:30:09 CEST 2010
 	- many API changes, see the manual.
         - (libev) lots and lots of bugfixes, see the ev documentation.

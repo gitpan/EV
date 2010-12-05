@@ -16,7 +16,7 @@ use EV;
 for my $it ("", 1, 2) {
    for my $i (3..5) {
       EV::once undef, 0, ($i - 3) * 0.1 + 0.2, sub {
-         print $_[0] == EV::TIMEOUT ? "" : "not ", "ok $it$i\n";
+         print $_[0] == EV::TIMER ? "" : "not ", "ok $it$i\n";
       };
    }
 

@@ -39,4 +39,3 @@ libev/ev_port.c
 libev/ev.pod
 
 META.yml                                 Module meta-data (added by MakeMaker)
-META.json                                Module meta-data (added by MakeMaker)

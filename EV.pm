@@ -121,7 +121,7 @@ package EV;
 use common::sense;
 
 BEGIN {
-   our $VERSION = '4.00';
+   our $VERSION = '4.01';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
