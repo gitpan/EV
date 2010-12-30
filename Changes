@@ -3,6 +3,11 @@ Revision history for Perl extension EV
 Changes marked with (libev) are changes in libev, and have more
 documentation in the libev Changes file.
 
+4.02 Thu Dec 30 08:27:41 CET 2010
+        - the revents argument did not stringify correctly, as only the
+          numeric value was updated, while the string value was kept from
+          previous invocations.
+
 4.01 Sun Dec  5 12:42:13 CET 2010
 	- fully support EV_COMPAT3=0.
         - default_fork was stupidly defined as inline.

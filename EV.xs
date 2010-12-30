@@ -210,6 +210,7 @@ e_cb (EV_P_ ev_watcher *w, int revents)
     {
       sv_events = sv_events_cache; sv_events_cache = 0;
       SvIV_set (sv_events, revents);
+      SvIOK_only (sv_events);
     }
   else
     {
