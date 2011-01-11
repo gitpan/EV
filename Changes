@@ -3,6 +3,16 @@ Revision history for Perl extension EV
 Changes marked with (libev) are changes in libev, and have more
 documentation in the libev Changes file.
 
+4.03 Tue Jan 11 14:51:05 CET 2011
+	- do not avoid the clock_gettime call on GNU/Linux anymore, as EV
+          links against -lpthread anyways - as a result, EV might now take
+          advantage of fast userspace clock_gettime implementations,
+          but also links against -lrt.
+        - (libev) lots of event port bug workarounds.
+        - (libev) officially support files in I/O watchers.
+        - (libev) new function ev_feed_signal.
+        - fix documentation parts still refering to the 3.x API.
+
 4.02 Thu Dec 30 08:27:41 CET 2010
         - the revents argument did not stringify correctly, as only the
           numeric value was updated, while the string value was kept from

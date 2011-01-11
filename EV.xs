@@ -17,6 +17,7 @@ sv_fileno (SV *fh)
 
 #define EV_STANDALONE 1
 #define EV_PROTOTYPES 1
+#define EV_USE_CLOCK_SYSCALL 0 /* as long as we need pthreads anyways... */
 #define EV_USE_NANOSLEEP EV_USE_MONOTONIC
 #define EV_H <ev.h>
 #define EV_CONFIG_H error
@@ -402,9 +403,11 @@ BOOT:
     const_iv (EV, BACKEND_DEVPOLL)
     const_iv (EV, BACKEND_PORT)
     const_iv (EV, BACKEND_ALL)
+    const_iv (EV, BACKEND_MASK)
     const_iv (EV, FLAG_AUTO)
     const_iv (EV, FLAG_FORKCHECK)
     const_iv (EV, FLAG_SIGNALFD)
+    const_iv (EV, FLAG_NOSIGMASK)
     const_iv (EV, FLAG_NOENV)
     const_iv (EV, FLAG_NOINOTIFY)
 
@@ -553,6 +556,15 @@ unsigned int ev_embeddable_backends ()
 void ev_sleep (NV interval)
 
 NV ev_time ()
+
+void ev_feed_signal (SV *signal)
+	CODE:
+{
+  	Signal signum = s_signum (signal);
+        CHECK_SIG (signal, signum);
+
+        ev_feed_signal (signum);
+}
 
 NV ev_now ()
 	C_ARGS: evapi.default_loop

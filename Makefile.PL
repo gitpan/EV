@@ -187,7 +187,8 @@ required by EV) now, or accept the default.
 EOF
 
 my $solaris_libs = $^O =~ /solaris/i ? "-lsocket -lnsl" : "";
-my $librt = $^O =~ /linux/i ? "-lpthread" : "-lpthread -lrt";
+#my $librt = $^O =~ /linux/i ? "-lpthread" : "-lpthread -lrt";
+my $librt = "-lpthread -lrt";
 my $LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "$librt $solaris_libs";
 
 
@@ -252,7 +253,7 @@ Normal persons just press enter.
 
 EOF
 
-$DEFINE .= " " . prompt "Any extra -D options?", $ENV{EV_EXTRA_DEFS};
+$DEFINE .= " " . prompt "Any extra -D options?", "$ENV{EV_EXTRA_DEFS}";
 
 print <<EOF;
 

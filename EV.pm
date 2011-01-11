@@ -121,7 +121,7 @@ package EV;
 use common::sense;
 
 BEGIN {
-   our $VERSION = '4.02';
+   our $VERSION = '4.03';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -301,19 +301,22 @@ callback calls EV::unloop.
 
 The $flags argument can be one of the following:
 
-   0                  as above
-   EV::LOOP_ONESHOT   block at most once (wait, but do not loop)
-   EV::LOOP_NONBLOCK  do not block at all (fetch/handle events but do not wait)
+   0                as above
+   EV::LOOP_ONCE    block at most once (wait, but do not loop)
+   EV::LOOP_NOWAIT  do not block at all (fetch/handle events but do not wait)
 
-=item EV::unloop [$how]
+=item EV::break [$how]
 
-=item $loop->unloop ([$how])
+=item $loop->break ([$how])
 
-When called with no arguments or an argument of EV::UNLOOP_ONE, makes the
+When called with no arguments or an argument of EV::BREAK_ONE, makes the
 innermost call to EV::loop return.
 
-When called with an argument of EV::UNLOOP_ALL, all calls to EV::loop will return as
-fast as possible.
+When called with an argument of EV::BREAK_ALL, all calls to EV::loop will
+return as fast as possible.
+
+When called with an argument of EV::BREAK_CANCEL, any pending break will
+be cancelled.
 
 =item $count = EV::loop_count
 
@@ -347,7 +350,7 @@ EV::once doesn't return anything: the watchers stay active till either
 of them triggers, then they will be stopped and freed, and the callback
 invoked.
 
-=item EV::feed_fd_event ($fd, $revents)
+=item EV::feed_fd_event $fd, $revents
 
 =item $loop->feed_fd_event ($fd, $revents)
 
@@ -355,10 +358,16 @@ Feed an event on a file descriptor into EV. EV will react to this call as
 if the readyness notifications specified by C<$revents> (a combination of
 C<EV::READ> and C<EV::WRITE>) happened on the file descriptor C<$fd>.
 
-=item EV::feed_signal_event ($signal)
+=item EV::feed_signal_event $signal
 
-Feed a signal event into EV. EV will react to this call as if the signal
-specified by C<$signal> had occured.
+Feed a signal event into the default loop. EV will react to this call as
+if the signal specified by C<$signal> had occured.
+
+=item EV::feed_signal $signal
+
+Feed a signal event into EV - unlike C<EV::feed_signal_event>, this works
+regardless of which loop has registered the signal, and is mainly useful
+fro custom signal implementations.
 
 =item EV::set_io_collect_interval $time
 
