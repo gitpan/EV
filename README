@@ -48,9 +48,9 @@ SYNOPSIS
        };
    
        # MAINLOOP
-       EV::loop;           # loop until EV::unloop is called or all watchers stop
-       EV::loop EV::LOOP_ONESHOT;  # block until at least one event could be handled
-       EV::loop EV::LOOP_NONBLOCK; # try to handle same events, but do not block
+       EV::run;                # loop until EV::unloop is called or all watchers stop
+       EV::run EV::RUN_ONCE;   # block until at least one event could be handled
+       EV::run EV::RUN_NOWAIT; # try to handle same events, but do not block
 
 BEFORE YOU START USING THIS MODULE
     If you only need timer, I/O, signal, child and idle watchers and not the
@@ -153,7 +153,7 @@ EVENT LOOPS
         "EV::FLAG_FORKCHECK" which calls this function automatically, at
         some performance loss (refer to the libev documentation).
 
-    $loop->loop_verify
+    $loop->verify
         Calls "ev_verify" to make internal consistency checks (for debugging
         libev) and abort the program if any data structures were found to be
         corrupted.
@@ -235,16 +235,16 @@ BASIC INTERFACE
         Returns an integer describing the backend used by libev
         (EV::BACKEND_SELECT or EV::BACKEND_EPOLL).
 
-    EV::loop [$flags]
-    $loop->loop ([$flags])
+    EV::run [$flags]
+    $loop->run ([$flags])
         Begin checking for events and calling callbacks. It returns when a
         callback calls EV::unloop.
 
         The $flags argument can be one of the following:
 
-           0                as above
-           EV::LOOP_ONCE    block at most once (wait, but do not loop)
-           EV::LOOP_NOWAIT  do not block at all (fetch/handle events but do not wait)
+           0               as above
+           EV::RUN_ONCE    block at most once (wait, but do not loop)
+           EV::RUN_NOWAIT  do not block at all (fetch/handle events but do not wait)
 
     EV::break [$how]
     $loop->break ([$how])
@@ -257,8 +257,8 @@ BASIC INTERFACE
         When called with an argument of EV::BREAK_CANCEL, any pending break
         will be cancelled.
 
-    $count = EV::loop_count
-    $count = $loop->loop_count
+    $count = EV::iteration
+    $count = $loop->iteration
         Return the number of times the event loop has polled for new events.
         Sometimes useful as a generation counter.
 

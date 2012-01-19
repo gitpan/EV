@@ -247,7 +247,7 @@ print <<EOF;
 
 
 Very rarely, people want to tweak EV even more, e.g. to exclude
-or incldue certain watcher types or backends. Thisc na be done by adding
+or include certain watcher types or backends. This cna be done by adding
 extra -D options here, or via the EV_EXTRA_DEFS environment variable.
 Normal persons just press enter.
 

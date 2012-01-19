@@ -3,6 +3,15 @@ Revision history for Perl extension EV
 Changes marked with (libev) are changes in libev, and have more
 documentation in the libev Changes file.
 
+4.10 Thu Jan 19 18:54:23 CET 2012
+        - (libev) fix a race where the workaround against the epoll fork
+          bugs caused signals to not be handled anymore.
+        - (libev) correct backend_fudge for most backends, and implement
+          a windows specific workaround to avoid looping because we call
+          both select and Sleep, both with different time resolutions.
+	- e_new wasn't declared static (causing very minor .so bloat).
+        - replace more old api names by new ones.
+
 4.03 Tue Jan 11 14:51:05 CET 2011
 	- do not avoid the clock_gettime call on GNU/Linux anymore, as EV
           links against -lpthread anyways - as a result, EV might now take

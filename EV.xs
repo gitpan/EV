@@ -19,6 +19,8 @@ sv_fileno (SV *fh)
 #define EV_PROTOTYPES 1
 #define EV_USE_CLOCK_SYSCALL 0 /* as long as we need pthreads anyways... */
 #define EV_USE_NANOSLEEP EV_USE_MONOTONIC
+#define EV_USE_FLOOR 1
+#define EV_API_STATIC
 #define EV_H <ev.h>
 #define EV_CONFIG_H error
 #include "EV/EVAPI.h"
@@ -131,7 +133,7 @@ static HV
 
 static void e_cb (EV_P_ ev_watcher *w, int revents);
 
-void *
+static void *
 e_new (int size, SV *cb_sv, SV *loop)
 {
   SV *cv = cb_sv ? s_get_cv_croak (cb_sv) : 0;
@@ -424,8 +426,8 @@ BOOT:
 #endif
   };
 
-  for (civ = const_iv + sizeof (const_iv) / sizeof (const_iv [0]); civ-- > const_iv; )
-    newCONSTSUB (stash, (char *)civ->name, newSViv (civ->iv));
+  for (civ = const_iv + sizeof (const_iv) / sizeof (const_iv [0]); civ > const_iv; civ--)
+    newCONSTSUB (stash, (char *)civ[-1].name, newSViv (civ[-1].iv));
 
   stash_loop     = gv_stashpv ("EV::Loop"    , 1);
   stash_watcher  = gv_stashpv ("EV::Watcher" , 1);
