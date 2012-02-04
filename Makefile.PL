@@ -247,8 +247,13 @@ print <<EOF;
 
 
 Very rarely, people want to tweak EV even more, e.g. to exclude
-or include certain watcher types or backends. This cna be done by adding
+or include certain watcher types or backends. This can be done by adding
 extra -D options here, or via the EV_EXTRA_DEFS environment variable.
+
+For example, if you run into compile problems because of missing memory
+fences (or you just want extra performance), you can tell EV to not support
+smp and threads via -DEV_NO_THREADS.
+
 Normal persons just press enter.
 
 EOF
