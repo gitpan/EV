@@ -184,12 +184,16 @@ you need some special libraries for this (such as -lrt and -lpthread). You
 can specify additional libraries to provide these calls (and any other
 required by EV) now, or accept the default.
 
+On GNU/Linux systems, EV uses the LSB 3.1 __register_atfork function
+to avoid the dependency on libpthread, and directly uses the clock_gettime
+syscall to avoid a dependency on librt.
+
 EOF
 
 my $solaris_libs = $^O =~ /solaris/i ? "-lsocket -lnsl" : "";
-#my $librt = $^O =~ /linux/i ? "-lpthread" : "-lpthread -lrt";
-my $librt = "-lpthread -lrt";
-my $LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", "$librt $solaris_libs";
+my $librt = $^O =~ /linux/i ? "" : "-lpthread -lrt";
+my $LIBS = exists $ENV{EV_LIBS} ? $ENV{EV_LIBS} : "$librt $solaris_libs";
+$LIBS = prompt "Extra libraries for pthread_atfork and clock_gettime?", $LIBS;
 
 
 print <<EOF;

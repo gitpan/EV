@@ -3,6 +3,14 @@ Revision history for Perl extension EV
 Changes marked with (libev) are changes in libev, and have more
 documentation in the libev Changes file.
 
+4.15 Fri Mar  1 12:15:53 CET 2013
+	- (libev) upgrade to 4.15 - too many changes to list.
+	- EV::run now returns a boolean.
+        - API version 5:1.
+        - document that cleanup watchers are not available via perl.
+        - cast I32 to int in error message printf.
+        - remove dependencies on librt and libpthreads on GNU/Linux.
+
 4.11 Sat Feb  4 19:56:26 CET 2012
 	- (libev) implement memory fences for (obsolete) llvm-gcc.
 

@@ -17,7 +17,6 @@ sv_fileno (SV *fh)
 
 #define EV_STANDALONE 1
 #define EV_PROTOTYPES 1
-#define EV_USE_CLOCK_SYSCALL 0 /* as long as we need pthreads anyways... */
 #define EV_USE_NANOSLEEP EV_USE_MONOTONIC
 #define EV_USE_FLOOR 1
 #define EV_API_STATIC
@@ -34,7 +33,7 @@ sv_fileno (SV *fh)
 /* due to bugs in OS X we have to use libev/ explicitly here */
 #include "libev/ev.c"
 
-#if !defined(_WIN32) && !defined(_MINIX)
+#if !defined _WIN32 && !defined _MINIX
 # include <pthread.h>
 #endif
 
@@ -520,8 +519,13 @@ BOOT:
     sv_setiv (sv, (IV)&evapi);
     SvREADONLY_on (sv);
   }
-#if !defined(_WIN32) && !defined(_MINIX)
+#if !defined _WIN32 && !defined _MINIX
+#if __linux
+  int __register_atfork(void (*prepare) (void), void (*parent) (void), void (*child) (void), void *   __dso_handle);
+  __register_atfork (0, 0, default_fork, 0);
+#else
   pthread_atfork (0, 0, default_fork);
+#endif
 #endif
 }
 
@@ -604,7 +608,7 @@ void ev_set_io_collect_interval (NV interval)
 void ev_set_timeout_collect_interval (NV interval)
 	C_ARGS: evapi.default_loop, interval
 
-void ev_run (int flags = 0)
+int ev_run (int flags = 0)
 	ALIAS:
         loop = 1
 	C_ARGS: evapi.default_loop, flags
@@ -620,7 +624,7 @@ void ev_feed_fd_event (int fd, int revents = EV_NONE)
 void ev_feed_signal_event (SV *signal)
 	CODE:
 {
-  	Signal signum = s_signum (signal);
+	Signal signum = s_signum (signal);
         CHECK_SIG (signal, signum);
 
         ev_feed_signal_event (evapi.default_loop, signum);
@@ -739,15 +743,20 @@ ev_fork *fork (SV *cb)
 	OUTPUT:
         RETVAL
 
+#if CLEANUP_ENABLED
+
 ev_cleanup *cleanup (SV *cb)
 	ALIAS:
         cleanup_ns = 1
 	CODE:
         RETVAL = e_new (sizeof (ev_cleanup), cb, default_loop_sv);
+        SvREFCNT_dec (RETVAL->loop); /* must not keep loop object alive */
         ev_cleanup_set (RETVAL);
         if (!ix) START (cleanup, RETVAL);
 	OUTPUT:
         RETVAL
+
+#endif
 
 ev_child *child (int pid, int trace, SV *cb)
 	ALIAS:
@@ -1142,6 +1151,8 @@ void DESTROY (ev_fork *w)
         STOP (fork, w);
         e_destroy (w);
 
+#if CLEANUP_ENABLED
+
 MODULE = EV		PACKAGE = EV::Cleanup	PREFIX = ev_cleanup_
 
 void ev_cleanup_start (ev_cleanup *w)
@@ -1155,13 +1166,16 @@ void ev_cleanup_stop (ev_cleanup *w)
 void DESTROY (ev_cleanup *w)
 	CODE:
         STOP (cleanup, w);
+        SvREFCNT_inc (w->loop); /* has been dec'ed on creation */
         e_destroy (w);
 
-int keepalive (ev_watcher *w, int new_value = 0)
+int keepalive (ev_watcher *w, SV *new_value = 0)
 	CODE:
-        RETVAL = 0;
+        RETVAL = 1;
 	OUTPUT:
         RETVAL
+
+#endif
 
 MODULE = EV		PACKAGE = EV::Child	PREFIX = ev_child_
 
@@ -1365,7 +1379,7 @@ SV *new (SV *klass, unsigned int flags = 0)
 
 void DESTROY (struct ev_loop *loop)
 	CODE:
-        /* 1. the default loop shouldn't be freed by destroying it'S pelr loop object */
+        /* 1. the default loop shouldn't be freed by destroying it's perl loop object */
         /* 2. not doing so helps avoid many global destruction bugs in perl, too */
         if (loop != evapi.default_loop)
           ev_loop_destroy (loop);
@@ -1398,7 +1412,7 @@ unsigned int ev_depth (struct ev_loop *loop)
 	ALIAS:
         loop_depth = 1
 
-void ev_run (struct ev_loop *loop, int flags = 0)
+int ev_run (struct ev_loop *loop, int flags = 0)
 	ALIAS:
         loop = 1
 
@@ -1417,7 +1431,7 @@ void ev_invoke_pending (struct ev_loop *loop)
 void ev_feed_signal_event (struct ev_loop *loop, SV *signal)
 	CODE:
 {
-  	Signal signum = s_signum (signal);
+	Signal signum = s_signum (signal);
         CHECK_SIG (signal, signum);
 
         ev_feed_signal_event (loop, signum);
@@ -1460,7 +1474,7 @@ SV *periodic (struct ev_loop *loop, NV at, NV interval, SV *reschedule_cb, SV *c
         CHECK_REPEAT (interval);
 	CODE:
 {
-  	ev_periodic *w;
+	ev_periodic *w;
         w = e_new (sizeof (ev_periodic), cb, ST (0));
         e_fh (w) = SvTRUE (reschedule_cb) ? newSVsv (reschedule_cb) : 0;
         ev_periodic_set (w, at, interval, e_fh (w) ? e_periodic_cb : 0);
@@ -1475,7 +1489,7 @@ ev_signal *signal (struct ev_loop *loop, SV *signal, SV *cb)
         signal_ns = 1
 	CODE:
 {
-  	Signal signum = s_signum (signal);
+	Signal signum = s_signum (signal);
         CHECK_SIG (signal, signum);
 
         RETVAL = e_new (sizeof (ev_signal), cb, ST (0));
@@ -1525,15 +1539,20 @@ ev_fork *fork (struct ev_loop *loop, SV *cb)
 	OUTPUT:
         RETVAL
 
+#if CLEANUP_ENABLED
+
 ev_cleanup *cleanup (struct ev_loop *loop, SV *cb)
 	ALIAS:
         cleanup_ns = 1
 	CODE:
         RETVAL = e_new (sizeof (ev_cleanup), cb, ST (0));
+        SvREFCNT_dec (RETVAL->loop); /* must not keep loop object alive */
         ev_cleanup_set (RETVAL);
         if (!ix) START (cleanup, RETVAL);
 	OUTPUT:
         RETVAL
+
+#endif
 
 ev_child *child (struct ev_loop *loop, int pid, int trace, SV *cb)
 	ALIAS:

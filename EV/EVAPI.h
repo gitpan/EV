@@ -32,7 +32,7 @@ struct EVAPI {
   I32 ver;
   I32 rev;
 #define EV_API_VERSION 5
-#define EV_API_REVISION 0
+#define EV_API_REVISION 1
 
   struct ev_loop *default_loop;
   unsigned int supported_backends;
@@ -57,10 +57,10 @@ struct EVAPI {
   unsigned int (*depth)(EV_P);
   ev_tstamp (*now)(EV_P);
   void (*now_update)(EV_P);
-  void (*run)(EV_P_ int flags);
+  int (*run)(EV_P_ int flags);
   void (*break_)(EV_P_ int how);
-  void (*suspend)(EV_P); 
-  void (*resume) (EV_P); 
+  void (*suspend)(EV_P);
+  void (*resume) (EV_P);
   void (*ref)  (EV_P);
   void (*unref)(EV_P);
   void (*set_userdata)(EV_P_ void *data);
@@ -188,15 +188,15 @@ struct EVAPI {
 
 static struct EVAPI *GEVAPI;
 
-#define I_EV_API(YourName)                                                         \
-STMT_START {                                                                       \
-  SV *sv = perl_get_sv ("EV::API", 0);                                             \
-  if (!sv) croak ("EV::API not found");                                            \
-  GEVAPI = (struct EVAPI*) SvIV (sv);                                              \
-  if (GEVAPI->ver != EV_API_VERSION                                                \
-      || GEVAPI->rev < EV_API_REVISION)                                            \
-    croak ("EV::API version mismatch (%d.%d vs. %d.%d) -- please recompile '%s'",  \
-           GEVAPI->ver, GEVAPI->rev, EV_API_VERSION, EV_API_REVISION, YourName);   \
+#define I_EV_API(YourName)                                                                 \
+STMT_START {                                                                               \
+  SV *sv = perl_get_sv ("EV::API", 0);                                                     \
+  if (!sv) croak ("EV::API not found");                                                    \
+  GEVAPI = (struct EVAPI*) SvIV (sv);                                                      \
+  if (GEVAPI->ver != EV_API_VERSION                                                        \
+      || GEVAPI->rev < EV_API_REVISION)                                                    \
+    croak ("EV::API version mismatch (%d.%d vs. %d.%d) -- please recompile '%s'",          \
+           (int)GEVAPI->ver, (int)GEVAPI->rev, EV_API_VERSION, EV_API_REVISION, YourName); \
 } STMT_END
 
 #endif

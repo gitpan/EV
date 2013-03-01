@@ -121,7 +121,7 @@ package EV;
 use common::sense;
 
 BEGIN {
-   our $VERSION = '4.11';
+   our $VERSION = '4.15';
    use XSLoader;
    XSLoader::load "EV", $VERSION;
 }
@@ -292,12 +292,16 @@ loop time (see C<now_update>).
 Returns an integer describing the backend used by libev (EV::BACKEND_SELECT
 or EV::BACKEND_EPOLL).
 
-=item EV::run [$flags]
+=item $active = EV::run [$flags]
 
-=item $loop->run ([$flags])
+=item $active = $loop->run ([$flags])
 
 Begin checking for events and calling callbacks. It returns when a
-callback calls EV::unloop.
+callback calls EV::unloop or the flasg are nonzero (in which case the
+return value is true) or when there are no active watchers which reference
+the loop (keepalive is true), in which case the return value will be
+false. The returnv alue can generally be interpreted as "if true, there is
+more work left to do".
 
 The $flags argument can be one of the following:
 
@@ -1137,11 +1141,20 @@ Please see the libev documentation for further details.
 
 =item $w = EV::async_ns $callback
 
+=item $w = $loop->async ($callback)
+
+=item $w = $loop->async_ns ($callback)
+
 =item $w->send
 
 =item $bool = $w->async_pending
 
 =back
+
+=head3 CLEANUP WATCHERS - how to clean up when the event loop goes away
+
+Cleanup watchers are not supported on the Perl level, they can only be
+used via XS currently.
 
 
 =head1 PERL SIGNALS

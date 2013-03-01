@@ -235,10 +235,14 @@ BASIC INTERFACE
         Returns an integer describing the backend used by libev
         (EV::BACKEND_SELECT or EV::BACKEND_EPOLL).
 
-    EV::run [$flags]
-    $loop->run ([$flags])
+    $active = EV::run [$flags]
+    $active = $loop->run ([$flags])
         Begin checking for events and calling callbacks. It returns when a
-        callback calls EV::unloop.
+        callback calls EV::unloop or the flasg are nonzero (in which case
+        the return value is true) or when there are no active watchers which
+        reference the loop (keepalive is true), in which case the return
+        value will be false. The returnv alue can generally be interpreted
+        as "if true, there is more work left to do".
 
         The $flags argument can be one of the following:
 
@@ -927,8 +931,14 @@ WATCHER TYPES
 
     $w = EV::async $callback
     $w = EV::async_ns $callback
+    $w = $loop->async ($callback)
+    $w = $loop->async_ns ($callback)
     $w->send
     $bool = $w->async_pending
+
+   CLEANUP WATCHERS - how to clean up when the event loop goes away
+    Cleanup watchers are not supported on the Perl level, they can only be
+    used via XS currently.
 
 PERL SIGNALS
     While Perl signal handling (%SIG) is not affected by EV, the behaviour
