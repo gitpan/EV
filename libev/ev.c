@@ -1,7 +1,7 @@
 /*
  * libev event processing core, watcher management
  *
- * Copyright (c) 2007,2008,2009,2010,2011,2012 Marc Alexander Lehmann <libev@schmorp.de>
+ * Copyright (c) 2007,2008,2009,2010,2011,2012,2013 Marc Alexander Lehmann <libev@schmorp.de>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modifica-
@@ -243,10 +243,7 @@
 #elif defined _sys_nsig
 # define EV_NSIG (_sys_nsig) /* Solaris 2.5 */
 #else
-# error "unable to find value for NSIG, please report"
-/* to make it compile regardless, just remove the above line, */
-/* but consider reporting it, too! :) */
-# define EV_NSIG 65
+# define EV_NSIG (8 * sizeof (sigset_t) + 1)
 #endif
 
 #ifndef EV_USE_FLOOR
@@ -254,7 +251,7 @@
 #endif
 
 #ifndef EV_USE_CLOCK_SYSCALL
-# if __linux && __GLIBC__ >= 2
+# if __linux && __GLIBC__ == 2 && __GLIBC_MINOR__ < 17
 #  define EV_USE_CLOCK_SYSCALL EV_FEATURE_OS
 # else
 #  define EV_USE_CLOCK_SYSCALL 0
@@ -487,7 +484,7 @@ struct signalfd_siginfo
 /*
  * libecb - http://software.schmorp.de/pkg/libecb
  *
- * Copyright (©) 2009-2012 Marc Alexander Lehmann <libecb@schmorp.de>
+ * Copyright (©) 2009-2013 Marc Alexander Lehmann <libecb@schmorp.de>
  * Copyright (©) 2011 Emanuele Giaquinta
  * All rights reserved.
  *
@@ -552,8 +549,8 @@ struct signalfd_siginfo
 #endif
 
 /* work around x32 idiocy by defining proper macros */
-#if __x86_64 || _M_AMD64
-  #if __ILP32
+#if __amd64 || __x86_64 || _M_AMD64 || _M_X64
+  #if _ILP32
     #define ECB_AMD64_X32 1
   #else
     #define ECB_AMD64 1
@@ -622,14 +619,16 @@ struct signalfd_siginfo
     #elif defined __ARM_ARCH_7__  || defined __ARM_ARCH_7A__  \
        || defined __ARM_ARCH_7M__ || defined __ARM_ARCH_7R__
       #define ECB_MEMORY_FENCE         __asm__ __volatile__ ("dmb"      : : : "memory")
-    #elif __sparc || __sparc__
+    #elif (__sparc || __sparc__) && !__sparcv8
       #define ECB_MEMORY_FENCE         __asm__ __volatile__ ("membar #LoadStore | #LoadLoad | #StoreStore | #StoreLoad" : : : "memory")
       #define ECB_MEMORY_FENCE_ACQUIRE __asm__ __volatile__ ("membar #LoadStore | #LoadLoad"                            : : : "memory")
       #define ECB_MEMORY_FENCE_RELEASE __asm__ __volatile__ ("membar #LoadStore             | #StoreStore")
     #elif defined __s390__ || defined __s390x__
       #define ECB_MEMORY_FENCE         __asm__ __volatile__ ("bcr 15,0" : : : "memory")
     #elif defined __mips__
-      #define ECB_MEMORY_FENCE         __asm__ __volatile__ ("sync"     : : : "memory")
+      /* GNU/Linux emulates sync on mips1 architectures, so we force its use */
+      /* anybody else who still uses mips1 is supposed to send in their version, with detection code. */
+      #define ECB_MEMORY_FENCE         __asm__ __volatile__ (".set mips2; sync; .set mips0" : : : "memory")
     #elif defined __alpha__
       #define ECB_MEMORY_FENCE         __asm__ __volatile__ ("mb"       : : : "memory")
     #elif defined __hppa__
@@ -637,6 +636,12 @@ struct signalfd_siginfo
       #define ECB_MEMORY_FENCE_RELEASE __asm__ __volatile__ ("")
     #elif defined __ia64__
       #define ECB_MEMORY_FENCE         __asm__ __volatile__ ("mf"       : : : "memory")
+    #elif defined __m68k__
+      #define ECB_MEMORY_FENCE         __asm__ __volatile__ (""         : : : "memory")
+    #elif defined __m88k__
+      #define ECB_MEMORY_FENCE         __asm__ __volatile__ ("tb1 0,%%r0,128" : : : "memory")
+    #elif defined __sh__
+      #define ECB_MEMORY_FENCE         __asm__ __volatile__ (""         : : : "memory")
     #endif
   #endif
 #endif
@@ -657,6 +662,12 @@ struct signalfd_siginfo
 
   #elif ECB_GCC_VERSION(4,4) || defined __INTEL_COMPILER || defined __clang__
     #define ECB_MEMORY_FENCE         __sync_synchronize ()
+  #elif _MSC_VER >= 1500 /* VC++ 2008 */
+    /* apparently, microsoft broke all the memory barrier stuff in Visual Studio 2008... */
+    #pragma intrinsic(_ReadBarrier,_WriteBarrier,_ReadWriteBarrier)
+    #define ECB_MEMORY_FENCE         _ReadWriteBarrier (); MemoryBarrier()
+    #define ECB_MEMORY_FENCE_ACQUIRE _ReadWriteBarrier (); MemoryBarrier() /* according to msdn, _ReadBarrier is not a load fence */
+    #define ECB_MEMORY_FENCE_RELEASE _WriteBarrier (); MemoryBarrier()
   #elif _MSC_VER >= 1400 /* VC++ 2005 */
     #pragma intrinsic(_ReadBarrier,_WriteBarrier,_ReadWriteBarrier)
     #define ECB_MEMORY_FENCE         _ReadWriteBarrier ()
@@ -1053,15 +1064,49 @@ ecb_inline ecb_bool ecb_little_endian (void) { return ecb_byteorder_helper () ==
     || defined __alpha__ \
     || defined __hppa__ \
     || defined __ia64__ \
+    || defined __m68k__ \
+    || defined __m88k__ \
+    || defined __sh__ \
     || defined _M_IX86 || defined _M_AMD64 || defined _M_IA64
   #define ECB_STDFP 1
   #include <string.h> /* for memcpy */
 #else
   #define ECB_STDFP 0
-  #include <math.h> /* for frexp*, ldexp* */
 #endif
 
 #ifndef ECB_NO_LIBM
+
+  #include <math.h> /* for frexp*, ldexp*, INFINITY, NAN */
+
+  /* only the oldest of old doesn't have this one. solaris. */
+  #ifdef INFINITY
+    #define ECB_INFINITY INFINITY
+  #else
+    #define ECB_INFINITY HUGE_VAL
+  #endif
+
+  #ifdef NAN
+    #define ECB_NAN NAN
+  #else
+    #define ECB_NAN ECB_INFINITY
+  #endif
+
+  /* converts an ieee half/binary16 to a float */
+  ecb_function_ float ecb_binary16_to_float (uint16_t x) ecb_const;
+  ecb_function_ float
+  ecb_binary16_to_float (uint16_t x)
+  {
+    int e = (x >> 10) & 0x1f;
+    int m = x & 0x3ff;
+    float r;
+
+    if      (!e     ) r = ldexpf (m        ,    -24);
+    else if (e != 31) r = ldexpf (m + 0x400, e - 25);
+    else if (m      ) r = ECB_NAN;
+    else              r = ECB_INFINITY;
+
+    return x & 0x8000 ? -r : r;
+  }
 
   /* convert a float to ieee single/binary32 */
   ecb_function_ uint32_t ecb_float_to_binary32 (float x) ecb_const;
@@ -2106,8 +2151,6 @@ evpipe_init (EV_P)
           fd_intern (fds [0]);
         }
 
-      fd_intern (fds [1]);
-
       evpipe [0] = fds [0];
 
       if (evpipe [1] < 0)
@@ -2122,6 +2165,8 @@ evpipe_init (EV_P)
           dup2 (fds [1], evpipe [1]);
           close (fds [1]);
         }
+
+      fd_intern (evpipe [1]);
 
       ev_io_set (&pipe_w, evpipe [0] < 0 ? evpipe [1] : evpipe [0], EV_READ);
       ev_io_start (EV_A_ &pipe_w);
@@ -2515,13 +2560,13 @@ ev_userdata (EV_P) EV_THROW
 }
 
 void
-ev_set_invoke_pending_cb (EV_P_ void (*invoke_pending_cb)(EV_P)) EV_THROW
+ev_set_invoke_pending_cb (EV_P_ ev_loop_callback invoke_pending_cb) EV_THROW
 {
   invoke_cb = invoke_pending_cb;
 }
 
 void
-ev_set_loop_release_cb (EV_P_ void (*release)(EV_P) EV_THROW, void (*acquire)(EV_P) EV_THROW) EV_THROW
+ev_set_loop_release_cb (EV_P_ ev_loop_callback_nothrow release, ev_loop_callback_nothrow acquire) EV_THROW
 {
   release_cb = release;
   acquire_cb = acquire;

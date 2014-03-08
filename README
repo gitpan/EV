@@ -560,7 +560,7 @@ WATCHER TYPES
                my $hourly = EV::periodic 0, 3600, 0, sub { print "once/hour\n" };
 
             That doesn't mean there will always be 3600 seconds in between
-            triggers, but only that the the clalback will be called when the
+            triggers, but only that the the callback will be called when the
             system time shows a full hour (UTC).
 
             Another way to think about it (for the mathematically inclined)

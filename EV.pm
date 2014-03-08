@@ -121,8 +121,9 @@ package EV;
 use common::sense;
 
 BEGIN {
-   our $VERSION = '4.15';
+   our $VERSION = '4.16';
    use XSLoader;
+   local $^W = 0; # avoid spurious warning
    XSLoader::load "EV", $VERSION;
 }
 
@@ -683,7 +684,7 @@ time:
    my $hourly = EV::periodic 0, 3600, 0, sub { print "once/hour\n" };
 
 That doesn't mean there will always be 3600 seconds in between triggers,
-but only that the the clalback will be called when the system time shows a
+but only that the the callback will be called when the system time shows a
 full hour (UTC).
 
 Another way to think about it (for the mathematically inclined) is that

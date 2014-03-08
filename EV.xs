@@ -3,8 +3,10 @@
 #include "XSUB.h"
 
 /* fix perl api breakage */
-#undef signal
-#undef sigaction
+#ifndef WIN32
+# undef signal
+# undef sigaction
+#endif
 
 #include "schmorp.h"
 
@@ -14,6 +16,10 @@ sv_fileno (SV *fh)
 {
   return s_fileno (fh, 0);
 }
+
+#ifndef GvCV_set
+# define GvCV_set(gv,cv) GvCV (gv) = cv
+#endif
 
 #define EV_STANDALONE 1
 #define EV_PROTOTYPES 1
@@ -33,7 +39,7 @@ sv_fileno (SV *fh)
 /* due to bugs in OS X we have to use libev/ explicitly here */
 #include "libev/ev.c"
 
-#if !defined _WIN32 && !defined _MINIX
+#if !defined _WIN32 && !defined _MINIX && !EV_NO_ATFORK
 # include <pthread.h>
 #endif
 
@@ -383,7 +389,7 @@ BOOT:
     const_iv (EV_, STAT)
     const_iv (EV_, IDLE)
     const_iv (EV_, PREPARE)
-    const_iv (EV_, CHECK)
+    /*const_iv (EV_, CHECK) needs special tretament */
     const_iv (EV_, EMBED)
     const_iv (EV_, FORK)
     const_iv (EV_, CLEANUP)
@@ -427,6 +433,16 @@ BOOT:
 
   for (civ = const_iv + sizeof (const_iv) / sizeof (const_iv [0]); civ > const_iv; civ--)
     newCONSTSUB (stash, (char *)civ[-1].name, newSViv (civ[-1].iv));
+
+  /* since this clashes with perl CHECK blocks, */
+  /* but we are interested in constants, */
+  /* and not blocks, we treat CHECK specially. */
+  {
+    /* the local $^W = 0 takes care of the warning */
+    CV *cv = newCONSTSUB (stash, "CHECK", newSViv (EV_CHECK));
+    /* now we need to re-set the gv, in case it was hijacked */
+    GvCV_set (gv_fetchpv ("EV::CHECK", GV_ADD, SVt_PVCV), cv);
+  }
 
   stash_loop     = gv_stashpv ("EV::Loop"    , 1);
   stash_watcher  = gv_stashpv ("EV::Watcher" , 1);
@@ -519,7 +535,7 @@ BOOT:
     sv_setiv (sv, (IV)&evapi);
     SvREADONLY_on (sv);
   }
-#if !defined _WIN32 && !defined _MINIX
+#if !defined _WIN32 && !defined _MINIX && !EV_NO_ATFORK
 #if __linux
   int __register_atfork(void (*prepare) (void), void (*parent) (void), void (*child) (void), void *   __dso_handle);
   __register_atfork (0, 0, default_fork, 0);

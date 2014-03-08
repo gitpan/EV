@@ -294,11 +294,11 @@ WriteMakefile(
     },
     VERSION_FROM => "EV.pm",
     PM           => {
-    		    'EV.pm'		=> '$(INST_LIBDIR)/EV.pm',
-    		    'EV/EVAPI.h'	=> '$(INST_LIBDIR)/EV/EVAPI.h',
-    		    'EV/MakeMaker.pm'	=> '$(INST_LIBDIR)/EV/MakeMaker.pm',
-    		    'libev/ev.h'	=> '$(INST_LIBDIR)/EV/ev.h',
-    		    'libev/ev.pod'	=> '$(INST_LIBDIR)/EV/libev.pod',
+		    'EV.pm'		=> '$(INST_LIB)/EV.pm',
+		    'EV/EVAPI.h'	=> '$(INST_LIB)/EV/EVAPI.h',
+		    'EV/MakeMaker.pm'	=> '$(INST_LIB)/EV/MakeMaker.pm',
+		    'libev/ev.h'	=> '$(INST_LIB)/EV/ev.h',
+		    'libev/ev.pod'	=> '$(INST_LIB)/EV/libev.pod',
                  },
     MAN3PODS => {
                     'EV.pm'           => '$(INST_MAN3DIR)/EV.$(MAN3EXT)',
