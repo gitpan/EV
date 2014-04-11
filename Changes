@@ -2,8 +2,13 @@ Revision history for Perl extension EV
 
 Changes marked with (libev) are changes in libev, and have more
 documentation in the libev Changes file.
-
 TODO: better multiarch detection
+
+4.17 Fri Apr 11 06:22:38 CEST 2014
+	- perl5porters broke Async::Interrupt, BDB, EV, IO::AIO, OpenCL
+          without warning by switching the meaning of USE_SOCKETS_AS_HANDLES
+          in 5.18. What's so attractive about giving a shit about backwards
+          compatibility - I will never understand.
 
 4.16 Sat Mar  8 16:49:05 CET 2014
 	- make sure EV::CHECK is available at all times.
