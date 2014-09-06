@@ -4,6 +4,10 @@ use strict qw(vars subs);
 use Config;
 use ExtUtils::MakeMaker;
 
+sub have_inc($) {
+   scalar grep -r "$_/$_[0]", $Config{usrinc}, split / /, $Config{incpth}
+}
+
 unless (-e "libev/ev_epoll.c") {
    print <<EOF;
 
@@ -95,10 +99,10 @@ EOF
 
    if (prompt ("Force use of system fd_set for select backend (y/n)?", "n") =~ /[yY]/) {
       $DEFINE .= " -DEV_SELECT_USE_FD_SET";
-   } 
+   }
 } else {
    $DEFINE .= " -DEV_USE_SELECT=0";
-} 
+}
 
 print <<EOF;
 
@@ -112,7 +116,7 @@ the default here unless you run into compile problems in ev_poll.c.
 
 EOF
 
-$DEFINE .= " -DEV_USE_POLL=" . (0 + (prompt ("Enable poll backend (y/n)?", (-e "/usr/include/poll.h") ? "y" : "n") =~ /[yY]/));
+$DEFINE .= " -DEV_USE_POLL=" . (0 + (prompt ("Enable poll backend (y/n)?", (have_inc "poll.h") ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 
@@ -129,7 +133,7 @@ the default.
 
 EOF
 
-my $can_epoll = -e "/usr/include/sys/epoll.h";
+my $can_epoll = have_inc "sys/epoll.h";
 $can_epoll = $ENV{EV_EPOLL} if exists $ENV{EV_EPOLL};
 $DEFINE .= " -DEV_USE_EPOLL=" . (0 + (prompt ("Enable epoll backend (y/n)?", $can_epoll ? "y" : "n") =~ /[yY]/));
 
@@ -157,7 +161,7 @@ OS X:    completely, utterly broken on at least <= 10.6.
 
 EOF
 
-my $can_kqueue = -e "/usr/include/sys/event.h";
+my $can_kqueue = have_inc "sys/event.h";
 $can_kqueue = $ENV{EV_KQUEUE} if exists $ENV{EV_KQUEUE};
 $DEFINE .= " -DEV_USE_KQUEUE=" . (0 + (prompt ("Enable kqueue backend (y/n)?", $can_kqueue ? "y" : "n") =~ /[yY]/));
 
@@ -172,7 +176,7 @@ at runtime, with a safe fallback to other methods when it cannot be used.
 
 EOF
 
-$DEFINE .= " -DEV_USE_PORT=" . (0 + (prompt ("Enable event port backend (y/n)?", (-e "/usr/include/sys/port.h") ? "y" : "n") =~ /[yY]/));
+$DEFINE .= " -DEV_USE_PORT=" . (0 + (prompt ("Enable event port backend (y/n)?", (have_inc "sys/port.h") ? "y" : "n") =~ /[yY]/));
 
 print <<EOF;
 
@@ -208,7 +212,7 @@ idea to enable it, as kernel availability is detected at runtime.
 
 EOF
 
-my $can_inotify = -e "/usr/include/sys/inotify.h";
+my $can_inotify = have_inc "sys/inotify.h";
 $can_inotify = $ENV{EV_INOTIFY} if exists $ENV{EV_INOTIFY};
 $DEFINE .= " -DEV_USE_INOTIFY=" . (0 + (prompt ("Enable inotify support (y/n)?", $can_inotify ? "y" : "n") =~ /[yY]/));
 
@@ -225,7 +229,7 @@ have this wrapper.
 
 EOF
 
-my $can_eventfd = -e "/usr/include/sys/eventfd.h";
+my $can_eventfd = have_inc "sys/eventfd.h";
 $can_eventfd = $ENV{EV_EVENTFD} if exists $ENV{EV_EVENTFD};
 $DEFINE .= " -DEV_USE_EVENTFD=" . (0 + (prompt ("Enable linux eventfd support (y/n)?", $can_eventfd ? "y" : "n") =~ /[yY]/));
 
@@ -241,7 +245,7 @@ wrapper. Glibc 2.7 and later should have this wrapper.
 
 EOF
 
-my $can_signalfd = -e "/usr/include/sys/signalfd.h";
+my $can_signalfd = have_inc "sys/signalfd.h";
 $can_signalfd = $ENV{EV_SIGNALFD} if exists $ENV{EV_SIGNALFD};
 $DEFINE .= " -DEV_USE_SIGNALFD=" . (0 + (prompt ("Enable linux signalfd support (y/n)?", $can_signalfd ? "y" : "n") =~ /[yY]/));
 

@@ -2,7 +2,10 @@ Revision history for Perl extension EV
 
 Changes marked with (libev) are changes in libev, and have more
 documentation in the libev Changes file.
-TODO: better multiarch detection
+
+4.18 Sat Sep  6 20:37:23 CEST 2014
+	- use slightly better weay to find includes, to support multiarch
+          on newer perls.
 
 4.17 Fri Apr 11 06:22:38 CEST 2014
 	- perl5porters broke Async::Interrupt, BDB, EV, IO::AIO, OpenCL
